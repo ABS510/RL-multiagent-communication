@@ -1,6 +1,5 @@
 import logging
 from colorama import Fore, Style, init
-from datetime import datetime
 
 init(autoreset=True)
 
