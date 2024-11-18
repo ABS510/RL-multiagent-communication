@@ -19,9 +19,13 @@ class NeuralNet(nn.Module):
 
   comm_act_fn: activation function (softmax/relu/sigmoid, etc.) for communication output.
                Default value is identity function (Do nothing)
+  
+  op_act_fn: activation function (softmax/relu/sigmoid, etc.) for communication output.
+               Default value is identity function (Do nothing). 
+               This is usual for Q-values
 
   All activations are ReLU for hidden layers.
-  Over action space, softmax is applied (for prob dist over actions to take)
+  Over action space, op_act_fn is applied
   Over communication, comm_act_fn is applied.
   The results are concatenated.
 
@@ -32,7 +36,7 @@ class NeuralNet(nn.Module):
   set communication_dim=0
   '''
 
-  def __init__(self, input_space, hidden_sizes, num_actions, communication_dim, comm_act_fn=lambda x:x):
+  def __init__(self, input_space, hidden_sizes, num_actions, communication_dim, op_act_fn = lambda x:x, comm_act_fn=lambda x:x):
     super(NeuralNet, self).__init__()
 
     hidden_sizes = [input_space] + hidden_sizes
@@ -48,7 +52,7 @@ class NeuralNet(nn.Module):
     self.num_actions = num_actions
     self.comm_act_fn = comm_act_fn
 
-    self.output_act = nn.Softmax(dim=1)
+    self.output_act = op_act_fn
 
 
   def forward(self, x):
