@@ -1,2 +1,5 @@
-autorom
+gymnasium[atari,accept-rom-license]
+ale-py
 pettingzoo[atari]
+pygame
+colorama
