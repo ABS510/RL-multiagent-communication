@@ -4,8 +4,8 @@ import functools
 import numpy as np
 import gymnasium as gym
 from pettingzoo.utils.conversions import aec_to_parallel_wrapper
-from FrameStackV3 import frame_stack_v3
 
+from FrameStackV3 import frame_stack_v3
 from Logging import setup_logger
 
 logger = setup_logger("EnvWrapper")
@@ -136,18 +136,35 @@ class Intention:
 
 class EnvWrapper(aec_to_parallel_wrapper):
     def __init__(self, base_env: aec_to_parallel_wrapper):
+        """initializes the EnvWrapper with the base environment.
+
+        Args:
+            base_env (aec_to_parallel_wrapper): The base environment to wrap.
+        """
         logger.info(f"Initializing EnvWrapper with base_env: {base_env}")
         super().__init__(base_env.aec_env)
         self._intentions: List[Intention] = []
         self.reset()
 
     def add_intention(self, intention: Intention):
+        """Adds an intention to the environment.
+
+        Args:
+            intention (Intention): The intention to add.
+        """
         intention.check_validity(self.agents)
         self._intentions.append(intention)
         logger.info(f"Added intention: {intention}")
 
-    @functools.lru_cache(maxsize=None)
     def observation_space(self, agent: str) -> gym.spaces.Tuple:
+        """Returns the observation space for the given agent.
+
+        Args:
+            agent (str): The agent to get the observation space for.
+
+        Returns:
+            gym.spaces.Tuple: The observation space for the agent.
+        """
         origin_space = super().observation_space(agent)
         space_list = [origin_space]
         for intention in self._intentions:
@@ -155,15 +172,22 @@ class EnvWrapper(aec_to_parallel_wrapper):
                 space_list.append(intention.observation_space)
         return gym.spaces.Tuple(space_list)
 
-    @functools.lru_cache(maxsize=None)
     def action_space(self, agent: str) -> gym.spaces.Tuple:
+        """Returns the action space for the given agent.
+
+        Args:
+            agent (str): The agent to get the action space for.
+
+        Returns:
+            gym.spaces.Tuple: The action space for the agent.
+        """
         space_list = [super().action_space(agent)]
         for intention in self._intentions:
             if intention.is_src_agent(agent):
                 space_list.append(intention.action_space)
         return gym.spaces.Tuple(space_list)
 
-    def observe(self, agent: str) -> List[np.ndarray]:
+    def __observe(self, agent: str) -> List[np.ndarray]:
         observation_list = [self.aec_env.observe(agent)]
         for intention in self._intentions:
             if intention.is_dst_agent(agent):
@@ -173,14 +197,33 @@ class EnvWrapper(aec_to_parallel_wrapper):
     def reset(
         self, seed=None, options=None
     ) -> Tuple[Dict[str, List[np.ndarray]], Dict]:
+        """Resets the environment and the intentions.
+
+        Args:
+            seed (_type_, optional): The seed to reset. Defaults to None.
+            options (_type_, optional): The option to reset. Defaults to None.
+
+        Returns:
+            Tuple[Dict[str, List[np.ndarray]], Dict]: The observations and the info dictionary.
+        """
         _, info = super().reset(seed, options)
         for intention in self._intentions:
             intention.reset()
         logger.info(f"Reset {self}")
-        observations = {agent: self.observe(agent) for agent in self.agents}
+        observations = {agent: self.__observe(agent) for agent in self.agents}
         return observations, info
 
-    def step(self, action: Dict[str, Tuple[np.ndarray]]):
+    def step(
+        self, action: Dict[str, Tuple[np.ndarray]]
+    ) -> Tuple[Dict[str, List[np.ndarray]], Dict, Dict, Dict, Dict]:
+        """Steps the environment with the given actions.
+
+        Args:
+            action (Dict[str, Tuple[np.ndarray]]): The actions for each agent.
+
+        Returns:
+            Tuple[Dict[str, List[np.ndarray]], Dict, Dict, Dict, Dict]: The observations, rewards, terminations, truncations, and infos.
+        """
         original_action = {agent: action[agent][0] for agent in self.agents}
         _, rewards, terminations, truncations, infos = super().step(original_action)
         for agent in self.agents:
@@ -189,13 +232,22 @@ class EnvWrapper(aec_to_parallel_wrapper):
                 if intention.is_src_agent(agent):
                     intention.step(action[agent][action_idx])
                     action_idx += 1
-        observations = {agent: self.observe(agent) for agent in self.agents}
+        observations = {agent: self.__observe(agent) for agent in self.agents}
         rewards = self.add_reward(action, rewards)
         return observations, rewards, terminations, truncations, infos
 
     def add_reward(
         self, action: Dict[str, Tuple[np.ndarray]], rewards: Dict[str, float]
-    ):
+    ) -> Dict[str, float]:
+        """Adds the rewards based on the intentions. Needs to be overridden for customized rewards.
+
+        Args:
+            action (Dict[str, Tuple[np.ndarray]]): The actions for each agent.
+            rewards (Dict[str, float]): The original rewards.
+
+        Returns:
+            Dict[str, float]: The updated rewards.
+        """
         return rewards
 
 
