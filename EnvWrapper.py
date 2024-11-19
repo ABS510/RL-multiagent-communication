@@ -2,7 +2,7 @@ from typing import List
 import functools
 
 import numpy as np
-from gymnasium.spaces import Tuple, Box, Discrete, MultiDiscrete
+import gymnasium as gym
 from pettingzoo.utils.wrappers import OrderEnforcingWrapper
 
 from Logging import setup_logger
@@ -69,24 +69,24 @@ class Intention:
         return agent in self._dst_agents
 
     @property
-    def action_space(self) -> Discrete:
+    def action_space(self) -> gym.spaces.Discrete:
         """
         The action space defined by the number of candidates.
 
         Returns:
-            Discrete: A Discrete space with size equal to the number of candidates.
+            gym.spaces.Discrete: A gym.spaces.Discrete space with size equal to the number of candidates.
         """
-        return Discrete(len(self._candidates))
+        return gym.spaces.Discrete(len(self._candidates))
 
     @property
-    def observation_space(self) -> Box:
+    def observation_space(self) -> gym.spaces.Box:
         """
         The observation space representing the candidates as a one-hot vector.
 
         Returns:
-            Box: A Box space with a shape corresponding to the number of candidates.
+            gym.spaces.Box: A gym.spaces.Box space with a shape corresponding to the number of candidates.
         """
-        return Box(low=0, high=1, shape=(len(self._candidates),), dtype=np.uint8)
+        return gym.spaces.Box(low=0, high=1, shape=(len(self._candidates),), dtype=np.uint8)
 
     def reset(self) -> None:
         """
@@ -99,29 +99,29 @@ class EnvWrapper(OrderEnforcingWrapper):
     def __init__(self, base_env: OrderEnforcingWrapper):
         logger.info(f"Initializing EnvWrapper with base_env: {base_env}")
         super().__init__(base_env)
-        self._intentions = []
+        self._intentions: List[Intention] = []
 
     def add_intention(self, intention: Intention):
         self._intentions.append(intention)
         logger.info(f"Added intention: {intention}")
 
     @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent: str) -> Tuple:
+    def observation_space(self, agent: str) -> gym.spaces.Tuple:
         origin_space = super().observation_space(agent)
         space_list = [origin_space]
         for intention in self._intentions:
             if intention.is_dst_agent(agent):
                 space_list.append(intention.observation_space)
-        return Tuple(space_list)
+        return gym.spaces.Tuple(space_list)
 
     @functools.lru_cache(maxsize=None)
-    def action_space(self, agent: str) -> MultiDiscrete:
+    def action_space(self, agent: str) -> gym.spaces.MultiDiscrete:
         origin_space = super().action_space(agent).n
         space_list = [origin_space]
         for intention in self._intentions:
             if intention.is_src_agent(agent):
                 space_list.append(intention.action_space.n)
-        return MultiDiscrete(space_list)
+        return gym.spaces.MultiDiscrete(space_list)
 
     def render(self):
         # TODO
@@ -170,3 +170,8 @@ if __name__ == "__main__":
 
     logger.info(f"Agent_0 agent space type: {type(env.observe(env.agents[0]))}")
     logger.info(f"Agent_0 agent space shape: {env.observe(env.agents[0]).shape}")
+
+    base_env.reset()
+    act_space = base_env.action_space("first_0").n
+    print(act_space)
+    print(np.random.choice(act_space))
