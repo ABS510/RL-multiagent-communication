@@ -56,6 +56,18 @@ class Intention:
             f"{self._candidates[self._val]}"
         )
 
+    def get_src_agent(self) -> str:
+        return self._src_agent
+
+    def get_intention(self) -> str:
+        """
+        Returns the current intention as a string.
+
+        Returns:
+            str: The current intention as a string.
+        """
+        return self._candidates[self._val]
+
     def is_src_agent(self, agent: str) -> bool:
         """
         Checks if the given agent is the source agent.
@@ -224,6 +236,7 @@ class EnvWrapper(aec_to_parallel_wrapper):
         """
         original_action = {agent: action[agent][0] for agent in self.agents}
         _, rewards, terminations, truncations, infos = super().step(original_action)
+        rewards = self.add_reward(action, rewards, self._intentions)
         for agent in self.agents:
             action_idx = 1
             for intention in self._intentions:
@@ -231,17 +244,20 @@ class EnvWrapper(aec_to_parallel_wrapper):
                     intention.step(action[agent][action_idx])
                     action_idx += 1
         observations = {agent: self.__observe(agent) for agent in self.agents}
-        rewards = self.add_reward(action, rewards)
         return observations, rewards, terminations, truncations, infos
 
     def add_reward(
-        self, action: Dict[str, Tuple[np.ndarray]], rewards: Dict[str, float]
+        self,
+        action: Dict[str, Tuple[np.ndarray]],
+        rewards: Dict[str, float],
+        intentions: List[Intention],
     ) -> Dict[str, float]:
         """Adds the rewards based on the intentions. Needs to be overridden for customized rewards.
 
         Args:
             action (Dict[str, Tuple[np.ndarray]]): The actions for each agent.
             rewards (Dict[str, float]): The original rewards.
+            intentions (List[Intention]): The list of intentions.
 
         Returns:
             Dict[str, float]: The updated rewards.
