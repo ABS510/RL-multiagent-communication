@@ -1,8 +1,8 @@
-from typing import List, Iterable
+from typing import List
 import functools
 
 import numpy as np
-from gymnasium.spaces import Tuple, Box
+from gymnasium.spaces import Tuple, Box, Discrete, MultiDiscrete
 from pettingzoo.utils.wrappers import OrderEnforcingWrapper
 
 from Logging import setup_logger
@@ -22,9 +22,6 @@ class Intention:
         self._src_agent = src_agent
         self._dst_agent = dst_agent
         self._candidates = candidates
-        self._action_space: List[np.ndarray[np.uint8]] = [
-            np.eye(len(candidates), dtype=np.uint8)[i] for i in range(len(candidates))
-        ]
         self._val = default
 
     def __repr__(self):
@@ -37,8 +34,8 @@ class Intention:
         return agent in self._dst_agent
 
     @property
-    def action_space(self) -> Iterable[np.ndarray[np.uint8]]:
-        return self._action_space
+    def action_space(self) -> Discrete:
+        return Discrete(len(self._candidates))
 
     @property
     def observation_space(self) -> Tuple:
@@ -57,7 +54,7 @@ class EnvWrapper(OrderEnforcingWrapper):
 
     # If your spaces change over time, remove this line (disable caching).
     @functools.lru_cache(maxsize=None)
-    def observation_space(self, agent) -> Tuple:
+    def observation_space(self, agent: str) -> Tuple:
         origin_space = super().observation_space(agent)
         space_list = [origin_space]
         for intention in self._intentions:
@@ -67,10 +64,13 @@ class EnvWrapper(OrderEnforcingWrapper):
 
     # If your spaces change over time, remove this line (disable caching).
     @functools.lru_cache(maxsize=None)
-    def action_space(self, agent):
-        # TODO
-        return super().action_space(agent)
-        pass
+    def action_space(self, agent: str) -> MultiDiscrete:
+        origin_space = super().action_space(agent).n
+        space_list = [origin_space]
+        for intention in self._intentions:
+            if intention.is_src_agent(agent):
+                space_list.append(intention.action_space.n)
+        return MultiDiscrete(space_list)
 
     def render(self):
         # TODO
@@ -105,7 +105,14 @@ if __name__ == "__main__":
         Intention(
             "first_0",
             ["first_0", "second_0"],
-            ["no_op", "fire", "move_up", "move_right", "move_left", "move_down"],
+            ["no_preference", "stay", "jump"],
+        )
+    )
+    env.add_intention(
+        Intention(
+            "second_0",
+            ["first_0", "second_0"],
+            ["no_preference", "stay", "jump"],
         )
     )
     env.reset()
@@ -113,3 +120,6 @@ if __name__ == "__main__":
     print(env.observation_space(env.agents[0]))
     agent_state = env.observe(env.agents[0])
     print(type(agent_state))
+    action_space = env.action_space(env.agents[0])
+    print(type(action_space))
+    print(action_space)
