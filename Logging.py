@@ -15,7 +15,7 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         log_color = self.LOG_COLORS.get(record.levelno, "")
-        structure = f"%(asctime)s {log_color}%(name)s [%(levelname)s]{Style.RESET_ALL}"
+        structure = f"%(asctime)s {log_color}[%(levelname)s] %(name)s:{Style.RESET_ALL}"
         formatter = logging.Formatter(
             fmt=f"{structure} %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
