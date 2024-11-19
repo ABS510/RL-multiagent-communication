@@ -1,11 +1,18 @@
+"""
+This file is a modified version of the original FrameStack.py file from the supersuit library.
+We made modifications so it should support Tuple observation spaces as well.
+"""
+
 from supersuit.generic_wrappers.utils.base_modifier import BaseModifier
 from supersuit.generic_wrappers.utils.shared_wrapper_util import shared_wrapper
 from supersuit.utils.frame_stack import get_tile_shape
 from gymnasium.spaces import Box, Discrete, Tuple
+from pettingzoo.utils.env import AECEnv, ParallelEnv
+from typing import Union
 import numpy as np
 
 
-def stack_init(obs_space, stack_size, stack_dim=-1):
+def _stack_init(obs_space, stack_size, stack_dim=-1):
     if isinstance(obs_space, Box):
         tile_shape, new_shape = get_tile_shape(
             obs_space.low.shape, stack_size, stack_dim
@@ -14,7 +21,7 @@ def stack_init(obs_space, stack_size, stack_dim=-1):
     elif isinstance(obs_space, Tuple):
         return tuple(
             [
-                stack_init(subspace, stack_size, stack_dim)
+                _stack_init(subspace, stack_size, stack_dim)
                 for subspace in obs_space.spaces
             ]
         )
@@ -22,7 +29,7 @@ def stack_init(obs_space, stack_size, stack_dim=-1):
         return 0
 
 
-def stack_obs_space(obs_space, stack_size, stack_dim=-1):
+def _stack_obs_space(obs_space, stack_size, stack_dim=-1):
     """
     obs_space_dict: Dictionary of observations spaces of agents
     stack_size: Number of frames in the observation stack
@@ -45,7 +52,7 @@ def stack_obs_space(obs_space, stack_size, stack_dim=-1):
     elif isinstance(obs_space, Tuple):
         return Tuple(
             [
-                stack_obs_space(subspace, stack_size, stack_dim)
+                _stack_obs_space(subspace, stack_size, stack_dim)
                 for subspace in obs_space.spaces
             ]
         )
@@ -57,7 +64,7 @@ def stack_obs_space(obs_space, stack_size, stack_dim=-1):
         )
 
 
-def stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
+def _stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
     """
     Parameters
     ----------
@@ -102,16 +109,26 @@ def stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
         res = []
         for idx, subspace in enumerate(obs_space.spaces):
             res.append(
-                stack_obs(frame_stack[idx], obs[idx], subspace, stack_size, stack_dim)
+                _stack_obs(frame_stack[idx], obs[idx], subspace, stack_size, stack_dim)
             )
         return tuple(res)
 
 
-def frame_stack_v3(env, stack_size=4, stack_dim=-1):
+def frame_stack_v3(env, stack_size=4, stack_dim=-1) -> Union[AECEnv, ParallelEnv]:
+    """Stacks observations in a frame-like manner. This is useful for training agents on environments that require temporal context.
+
+    Args:
+        env: The environment to be modified
+        stack_size (int, optional): The stack window size. Defaults to 4.
+        stack_dim (int, optional): The dimension to stack on. Defaults to -1.
+
+    Returns:
+        Union[AECEnv, ParallelEnv]: The modified environment
+    """
     assert isinstance(stack_size, int), "stack size of frame_stack must be an int"
     assert f"stack_dim should be 0 or -1, not {stack_dim}"
 
-    class FrameStackModifier(BaseModifier):
+    class _FrameStackModifier(BaseModifier):
         def modify_obs_space(self, obs_space):
             if isinstance(obs_space, Box):
                 assert (
@@ -141,22 +158,22 @@ def frame_stack_v3(env, stack_size=4, stack_dim=-1):
                 )
 
             self.old_obs_space = obs_space
-            self.observation_space = stack_obs_space(obs_space, stack_size, stack_dim)
+            self.observation_space = _stack_obs_space(obs_space, stack_size, stack_dim)
             return self.observation_space
 
         def reset(self, seed=None, options=None):
-            self.stack = stack_init(self.old_obs_space, stack_size, stack_dim)
+            self.stack = _stack_init(self.old_obs_space, stack_size, stack_dim)
             self.reset_flag = True
 
         def modify_obs(self, obs):
             if self.reset_flag:
                 for _ in range(stack_size):
-                    self.stack = stack_obs(
+                    self.stack = _stack_obs(
                         self.stack, obs, self.old_obs_space, stack_size, stack_dim
                     )
                 self.reset_flag = False
             else:
-                self.stack = stack_obs(
+                self.stack = _stack_obs(
                     self.stack, obs, self.old_obs_space, stack_size, stack_dim
                 )
 
@@ -165,4 +182,4 @@ def frame_stack_v3(env, stack_size=4, stack_dim=-1):
         def get_last_obs(self):
             return self.stack
 
-    return shared_wrapper(env, FrameStackModifier)
+    return shared_wrapper(env, _FrameStackModifier)
