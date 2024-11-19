@@ -4,6 +4,7 @@ import functools
 import numpy as np
 import gymnasium as gym
 from pettingzoo.utils.conversions import aec_to_parallel_wrapper
+from FrameStackV3 import frame_stack_v3
 
 from Logging import setup_logger
 
@@ -138,6 +139,7 @@ class EnvWrapper(aec_to_parallel_wrapper):
         logger.info(f"Initializing EnvWrapper with base_env: {base_env}")
         super().__init__(base_env.aec_env)
         self._intentions: List[Intention] = []
+        self.reset()
 
     def add_intention(self, intention: Intention):
         intention.check_validity(self.agents)
@@ -203,9 +205,10 @@ class EnvWrapper(aec_to_parallel_wrapper):
 if __name__ == "__main__":
     from pettingzoo.atari import volleyball_pong_v3
 
-    base_env = volleyball_pong_v3.parallel_env()
-    env = EnvWrapper(base_env)
-    env.reset()
+    # create the env
+    env = EnvWrapper(volleyball_pong_v3.parallel_env())
+
+    # add the intentions
     agents = env.agents
     logger.info(f"Agents: {env.agents}")
     env.add_intention(
@@ -214,7 +217,15 @@ if __name__ == "__main__":
     env.add_intention(
         Intention(agents[1], agents[0:2], ["no_preference", "stay", "jump"])
     )
+
+    # stack the frames
+    env = frame_stack_v3(env, 4)
+
+    # must call reset!
     observations, info = env.reset()
+
+    logger.info("-" * 20)
+    # check the observation and action spaces
     logger.info(f"Agents: {agents}")
     for agent in agents:
         logger.info(f"Agent {agent} observation space: {env.observation_space(agent)}")
@@ -226,6 +237,7 @@ if __name__ == "__main__":
         for observation in observations[agent]:
             logger.info(f"Agent {agent} observation shape: {observation.shape}")
 
+    # the training loop here
     frame_num = 1
     for i in range(frame_num):
         # insert policy here; use the dictionary observation to get the observation for each agent

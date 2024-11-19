@@ -2,3 +2,4 @@ gymnasium
 pettingzoo[atari]
 pygame
 colorama
+supersuit
