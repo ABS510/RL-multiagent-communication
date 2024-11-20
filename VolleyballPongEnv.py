@@ -1,5 +1,6 @@
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
+from pettingzoo.utils.conversions import aec_to_parallel
 from FrameStackV3 import frame_stack_v3
 from EnvWrapper import EnvWrapper, Intention
 from Logging import setup_logger
@@ -42,7 +43,14 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
 
 # create the env
-env = VolleyballPongEnvWrapper(volleyball_pong_v3.parallel_env())
+env = volleyball_pong_v3.env()
+
+from AECWrapper import AECWrapper
+env = AECWrapper(env)
+
+env = aec_to_parallel(env)
+
+env = VolleyballPongEnvWrapper(env)
 
 # add the intentions
 agents = env.agents
