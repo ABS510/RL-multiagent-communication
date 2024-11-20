@@ -5,7 +5,7 @@ import numpy as np
 
 from simplify import *
 
-human_mode = False
+human_mode = True
 
 # Initialize the environment
 env = volleyball_pong_v3.env(render_mode="human")
@@ -47,61 +47,16 @@ def get_human_action():
 prev_human_agent = 0
 prev_action = 0
 
-prev_count_map = None
-background_color = 0
-border_color = 236
-team_candidates = (101, 223)
-
-colors_encoding = []
 sc = None
+
+observer = SimplifiedVolleyballPong(debug=True)
 
 for agent in env.agent_iter():
     observation, reward, termination, truncation, info = env.last()
-
+    # print(observation.shape)
+    # (210, 160, 3)
+    paddles, ball = observer.observe(observation)
     # np.savetxt("observation_ball.txt", observation[:, :, 0], fmt='%d') 
-
-    observation_R = observation[24:, :, 0]
-    # hack: the items are after the 24th line
-    unique, counts = np.unique(observation_R, return_counts=True)
-    count_map = sorted(
-        list(zip(unique.tolist(), counts.tolist())),
-        key=lambda x: x[1]
-    )
-    
-    # update color
-    if count_map != prev_count_map:
-        prev_count_map = count_map
-        
-        background_color = count_map[-1][0]
-        border_color = count_map[-2][0]
-        team_candidates = (
-            min(count_map[0][0], count_map[1][0]),
-            max(count_map[0][0], count_map[1][0])
-        )
-
-        new_colors_encoding = [background_color, border_color, *team_candidates]
-        if new_colors_encoding != colors_encoding:
-            colors_encoding = new_colors_encoding
-            
-    # detect per frame
-    detections = []
-    for candidate_color in team_candidates:
-        for shapes in LARGE_SHAPE, SMALL_SHAPE:
-            paddle_candidate = find_rectangle(
-                observation_R,
-                candidate_color * np.ones(shapes),
-                detections
-            )
-
-            detections.append(paddle_candidate)
-
-    detected_ball = find_ball(observation_R, border_color)
-    if detected_ball is not None:
-        print("ball: ", detected_ball)
-
-        # print(np.array(detections)) 
-        # sc = plot_detections(np.array(detections), sc)
-        # plot_updating_visualization(np.array(detections))
 
     if termination or truncation:
         action = None
@@ -131,7 +86,6 @@ for agent in env.agent_iter():
     else:
         action = env.action_space(agent).sample() 
         env.step(action)
-
 
 env.close()
 pygame.quit()

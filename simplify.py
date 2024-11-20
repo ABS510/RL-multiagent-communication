@@ -1,11 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
 
-COLORS = ['blue', 'blue', 'orange', 'orange']
+COLORS = ['blue', 'blue', 'orange', 'orange', 'black']
 SMALL_SHAPE = (4, 8)
 LARGE_SHAPE = (4, 16)
 BALL_SHAPE = (4, 2)
 BORDER_CORNER_SHAPE = (10, 8)
+BOARD_TOP = 24
+VIDEO_FRAMES = 500
 
 # first_0 = large RHS player
 # second_0 = large LHS player
@@ -13,19 +16,39 @@ BORDER_CORNER_SHAPE = (10, 8)
 def plot_initial_detections(detections):
     fig, ax = plt.subplots()
     sc = ax.scatter(detections[:, 1], detections[:, 0], c=COLORS)
-    # plt.ioff()
     plt.show()
 
     return sc
 
-def plot_detections(detections, sc=None):
-    # if sc is None:
-    return plot_initial_detections(detections)
+def plot_detections(all_detections):
+    # Create a figure and axis for the plot
+    fig, ax = plt.subplots()
+    x = all_detections[0][:, 1]
+    y = all_detections[0][:, 0] + BOARD_TOP
 
-    # sc.set_offsets([detections[:, 1], detections[:, 0]])  # Update the data points
-    # plt.draw()
-    # plt.show()
-    # return sc
+    ax.set_xlim(left=0, right=160)  # Flip x-axis
+    ax.set_ylim(top=0, bottom=210)  # Flip y-axis
+    sc = ax.scatter(x, y, c=COLORS[:len(x)])
+
+    # Function to update both lines in each frame
+    def update(frame):
+        x = all_detections[frame][:, 1]
+        y = all_detections[frame][:, 0] + BOARD_TOP
+
+        # sc = ax.scatter(x, y, c=COLORS[:len(x)])
+        sc.set_offsets(np.c_[x, y])        
+        return sc,
+
+    # Create the animation object
+    ani = FuncAnimation(fig, update, frames=len(all_detections), interval=50, blit=True)
+
+    # Save the animation as a .mp4 file
+    # ani.save('test.mp4', writer='ffmpeg', fps=30)
+    writergif = PillowWriter(fps=30)
+    ani.save('test.gif',writer=writergif)
+
+    # Show the plot (optional)
+    plt.show()
 
 def find_rectangle(img, paddle, detections):
     M, N = img.shape
@@ -63,3 +86,85 @@ def find_ball(img, ball_color):
         # :) 
         return None
     return candidate
+
+class SimplifiedVolleyballPong():
+    def __init__(self, debug=False):
+        # init tracked variables
+        self.prev_count_map = None
+        self.background_color = 0
+        self.border_color = 236
+        self.team_candidates = (101, 223)
+        self.colors_encoding = []
+
+        self.debug = debug
+        if debug:
+            self.all_detections = []
+
+    def _update_colors(self, observation_R):
+        unique, counts = np.unique(observation_R, return_counts=True)
+
+        count_map = sorted(
+            list(zip(unique.tolist(), counts.tolist())),
+            key=lambda x: x[1]
+        )
+        
+        # update color
+        if count_map != self.prev_count_map:
+            self.prev_count_map = count_map
+            
+            self.background_color = count_map[-1][0]
+            self.border_color = count_map[-2][0]
+            self.team_candidates = (
+                min(count_map[0][0], count_map[1][0]),
+                max(count_map[0][0], count_map[1][0])
+            )
+
+            new_colors_encoding = [
+                self.background_color, 
+                self.border_color, 
+                *(self.team_candidates)
+            ]
+            if new_colors_encoding != self.colors_encoding:
+                self.colors_encoding = new_colors_encoding
+    
+    def _get_detections(self, observation_R):
+        # detect per frame
+        detections = []
+        for candidate_color in self.team_candidates:
+            for shapes in LARGE_SHAPE, SMALL_SHAPE:
+                paddle_candidate = find_rectangle(
+                    observation_R,
+                    candidate_color * np.ones(shapes),
+                    detections
+                )
+
+                detections.append(paddle_candidate)
+        detected_ball = find_ball(observation_R, self.border_color)
+        
+        paddles = np.array(detections)
+        ball = np.array(detected_ball).reshape((1,2)) if detected_ball is not None else None
+
+        if self.debug:
+            if ball is not None:
+                self.all_detections.append(np.concatenate((paddles, ball), axis=0))
+            else:
+                self.all_detections.append(paddles)
+
+            if len(self.all_detections) >= VIDEO_FRAMES:
+                self.get_observation_video()
+                self.all_detections = []
+
+        return paddles, ball
+
+    def observe(self, observation):
+        observation_R = observation[BOARD_TOP:, :, 0]
+        # hack: the items are after the 24th line
+        self._update_colors(observation_R)        
+        return self._get_detections(observation_R)
+
+    def get_observation_video(self):
+        if not self.debug:
+            print("Not debug")
+
+        plot_detections(self.all_detections)
+
