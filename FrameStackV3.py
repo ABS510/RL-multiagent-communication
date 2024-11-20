@@ -1,24 +1,24 @@
 """
 This file is a modified version of the original FrameStack.py file from the supersuit library.
-We made modifications so it should support Tuple observation spaces as well.
+We made modifications so it should support gym.spaces.Tuple observation spaces as well.
 """
 
 from supersuit.generic_wrappers.utils.base_modifier import BaseModifier
 from supersuit.generic_wrappers.utils.shared_wrapper_util import shared_wrapper
 from supersuit.utils.frame_stack import get_tile_shape
-from gymnasium.spaces import Box, Discrete, Tuple
+import gymnasium as gym
 from pettingzoo.utils.env import AECEnv, ParallelEnv
 from typing import Union
 import numpy as np
 
 
 def _stack_init(obs_space, stack_size, stack_dim=-1):
-    if isinstance(obs_space, Box):
+    if isinstance(obs_space, gym.spaces.Box):
         tile_shape, new_shape = get_tile_shape(
             obs_space.low.shape, stack_size, stack_dim
         )
         return np.tile(np.zeros(new_shape, dtype=obs_space.dtype), tile_shape)
-    elif isinstance(obs_space, Tuple):
+    elif isinstance(obs_space, gym.spaces.Tuple):
         return tuple(
             [
                 _stack_init(subspace, stack_size, stack_dim)
@@ -36,7 +36,7 @@ def _stack_obs_space(obs_space, stack_size, stack_dim=-1):
     Returns:
         New obs_space_dict
     """
-    if isinstance(obs_space, Box):
+    if isinstance(obs_space, gym.spaces.Box):
         dtype = obs_space.dtype
         # stack 1-D frames and 3-D frames
         tile_shape, new_shape = get_tile_shape(
@@ -45,12 +45,12 @@ def _stack_obs_space(obs_space, stack_size, stack_dim=-1):
 
         low = np.tile(obs_space.low.reshape(new_shape), tile_shape)
         high = np.tile(obs_space.high.reshape(new_shape), tile_shape)
-        new_obs_space = Box(low=low, high=high, dtype=dtype)
+        new_obs_space = gym.spaces.Box(low=low, high=high, dtype=dtype)
         return new_obs_space
-    elif isinstance(obs_space, Discrete):
-        return Discrete(obs_space.n**stack_size)
-    elif isinstance(obs_space, Tuple):
-        return Tuple(
+    elif isinstance(obs_space, gym.spaces.Discrete):
+        return gym.spaces.Discrete(obs_space.n**stack_size)
+    elif isinstance(obs_space, gym.spaces.Tuple):
+        return gym.spaces.Tuple(
             [
                 _stack_obs_space(subspace, stack_size, stack_dim)
                 for subspace in obs_space.spaces
@@ -59,7 +59,7 @@ def _stack_obs_space(obs_space, stack_size, stack_dim=-1):
     else:
         assert (
             False
-        ), "Stacking is currently only allowed for Box, Discrete, and Tuple observation spaces. The given observation space is {}".format(
+        ), "Stacking is currently only allowed for gym.spaces.Box, gym.spaces.Discrete, and gym.spaces.Tuple observation spaces. The given observation space is {}".format(
             obs_space
         )
 
@@ -74,7 +74,7 @@ def _stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
         Throws away the oldest observation.
     stack_size : needed for stacking reset observations
     """
-    if isinstance(obs_space, Box):
+    if isinstance(obs_space, gym.spaces.Box):
         obs_shape = obs.shape
         agent_fs = frame_stack
 
@@ -102,10 +102,10 @@ def _stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
                 agent_fs[-nchannels:] = obs
         return agent_fs
 
-    elif isinstance(obs_space, Discrete):
+    elif isinstance(obs_space, gym.spaces.Discrete):
         return (frame_stack * obs_space.n + obs) % (obs_space.n**stack_size)
 
-    elif isinstance(obs_space, Tuple):
+    elif isinstance(obs_space, gym.spaces.Tuple):
         res = []
         for idx, subspace in enumerate(obs_space.spaces):
             res.append(
@@ -130,30 +130,30 @@ def frame_stack_v3(env, stack_size=4, stack_dim=-1) -> Union[AECEnv, ParallelEnv
 
     class _FrameStackModifier(BaseModifier):
         def modify_obs_space(self, obs_space):
-            if isinstance(obs_space, Box):
+            if isinstance(obs_space, gym.spaces.Box):
                 assert (
                     1 <= len(obs_space.shape) <= 3
                 ), "frame_stack only works for 1, 2 or 3 dimensional observations"
-            elif isinstance(obs_space, Discrete):
+            elif isinstance(obs_space, gym.spaces.Discrete):
                 pass
-            elif isinstance(obs_space, Tuple):
+            elif isinstance(obs_space, gym.spaces.Tuple):
                 for subspace in obs_space.spaces:
-                    if isinstance(subspace, Box):
+                    if isinstance(subspace, gym.spaces.Box):
                         assert (
                             1 <= len(subspace.shape) <= 3
                         ), "frame_stack only works for 1, 2 or 3 dimensional observations"
-                    elif isinstance(subspace, Discrete):
+                    elif isinstance(subspace, gym.spaces.Discrete):
                         pass
                     else:
                         assert (
                             False
-                        ), "Stacking is currently only allowed for Box and Discrete observation spaces. The given observation space is {}".format(
+                        ), "Stacking is currently only allowed for gym.spaces.Box and gym.spaces.Discrete observation spaces. The given observation space is {}".format(
                             obs_space
                         )
             else:
                 assert (
                     False
-                ), "Stacking is currently only allowed for Box and Discrete observation spaces. The given observation space is {}".format(
+                ), "Stacking is currently only allowed for gym.spaces.Box and gym.spaces.Discrete observation spaces. The given observation space is {}".format(
                     obs_space
                 )
 
