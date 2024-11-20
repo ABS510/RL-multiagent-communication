@@ -45,6 +45,9 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 # create the env
 env = volleyball_pong_v3.env()
 
+from AECWrapper import AECWrapper
+env = AECWrapper(env)
+
 env = aec_to_parallel(env)
 
 env = VolleyballPongEnvWrapper(env)
