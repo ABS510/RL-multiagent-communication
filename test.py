@@ -5,7 +5,7 @@ import numpy as np
 
 from simplify import *
 
-human_mode = True
+human_mode = False
 
 # Initialize the environment
 env = volleyball_pong_v3.env(render_mode="human")

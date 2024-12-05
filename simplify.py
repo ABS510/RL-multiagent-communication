@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
+from typing import Tuple
+from Detection import Detection
+
 COLORS = ['blue', 'blue', 'orange', 'orange', 'black']
 SMALL_SHAPE = (4, 8)
 LARGE_SHAPE = (4, 16)
@@ -50,7 +53,11 @@ def plot_detections(all_detections):
     # Show the plot (optional)
     plt.show()
 
-def find_rectangle(img, paddle, detections):
+def find_rectangle(
+    img: np.ndarray, 
+    paddle: np.ndarray, 
+    detections: list[Tuple[int]],
+) -> Tuple[int]:
     M, N = img.shape
     m, n = paddle.shape
 
@@ -73,6 +80,48 @@ def find_rectangle(img, paddle, detections):
 
     return min_i, min_j
 
+def find_rectangle_from_prev(
+    img: np.ndarray, 
+    paddle: np.ndarray,
+    teammate_detection: Detection = None,
+    prev_detection: Detection = None
+) -> Tuple[int]:
+    M, N = img.shape
+    m, n = paddle.shape
+
+    min_diff = float('inf')
+
+    if prev_detection is None:
+        find_rectangle(img, paddle, [])
+
+    prev_i = prev_detection.x
+    prev_j = prev_detection.y
+    
+    # find in row
+    col_candidates = [j for neighbors in zip(range(prev_j, -1, -1), range(prev_j+1, N)) for j in neighbors]
+    for j in col_candidates:
+        diff = np.sum(np.abs(img[prev_i:prev_i+m, j:j+n] - paddle))
+        if diff < min_diff:
+            if teammate_detection is not None and teammate_detection.x == prev_i:
+                continue
+            if diff == 0:
+                return prev_i, j
+            min_diff = diff
+        
+    # find in col
+    row_candidates = [i for neighbors in zip(range(prev_i, -1, -1), range(prev_i+1, M)) for i in neighbors]
+    for i in row_candidates:
+        diff = np.sum(np.abs(img[i:i+m, prev_j:prev_j+n] - paddle))
+        if diff < min_diff:
+            if teammate_detection is not None and teammate_detection.x == prev_i:
+                continue
+            if diff == 0:
+                return i, prev_j
+            min_diff = diff
+
+    # search all if not found
+    return find_rectangle(img, paddle, teammate_detection)
+    
 def find_ball(img, ball_color):
     ball_region = np.pad(
         np.ones(BALL_SHAPE),
@@ -97,6 +146,11 @@ class SimplifiedVolleyballPong():
         self.colors_encoding = []
 
         self.debug = debug
+
+        # detections
+        self.paddles = {}
+        self.ball = None
+    
         if debug:
             self.all_detections = []
 
@@ -126,10 +180,66 @@ class SimplifiedVolleyballPong():
             ]
             if new_colors_encoding != self.colors_encoding:
                 self.colors_encoding = new_colors_encoding
+                return True
+        return False
+
+    def _assign_detection_agent(self, c, shape, observation_R):
+        M, N = observation_R.shape
+
+        if c > N/2:
+            # right side
+            if shape == LARGE_SHAPE:
+                return 'first_0'
+            else:
+                return 'third_0'
+        else:
+            # left side
+            if shape == LARGE_SHAPE:
+                return 'second_0'
+            else:
+                return 'fourth_0'
     
     def _get_detections(self, observation_R):
         # detect per frame
+        detections_arr = []
+        for candidate_color in self.team_candidates:
+            for shapes in LARGE_SHAPE, SMALL_SHAPE:
+                paddle_r, paddle_c = find_rectangle(
+                    observation_R,
+                    candidate_color * np.ones(shapes),
+                    detections_arr
+                )
+
+                agent_name = self._assign_detection_agent(
+                    paddle_c,
+                    shapes,
+                    observation_R
+                )
+
+                detections_arr.append((paddle_r, paddle_c))
+                self.paddles[agent_name] = Detection(agent_name, paddle_r, paddle_c, shapes, candidate_color)
+                
+
+        detected_ball = find_ball(observation_R, self.border_color)
+        
+        paddles = np.array(detections_arr)
+
+        ball = np.array(detected_ball).reshape((1,2)) if detected_ball is not None else np.zeros((1, 2))
+
+        self.detections = np.concatenate((paddles, ball), axis=0)
+        if self.debug:
+            self.all_detections.append(self.detections)
+
+            if len(self.all_detections) >= VIDEO_FRAMES:
+                self.get_observation_video()
+                self.all_detections = []
+
+        return self.detections
+
+    def _get_detections_from_previous(self, observation_R):
+        # detect per frame
         detections = []
+
         for candidate_color in self.team_candidates:
             for shapes in LARGE_SHAPE, SMALL_SHAPE:
                 paddle_candidate = find_rectangle(
@@ -142,13 +252,12 @@ class SimplifiedVolleyballPong():
         detected_ball = find_ball(observation_R, self.border_color)
         
         paddles = np.array(detections)
-        ball = np.array(detected_ball).reshape((1,2)) if detected_ball is not None else None
 
+        ball = np.array(detected_ball).reshape((1,2)) if detected_ball is not None else np.zeros((1, 2))
+
+        self.detections = np.concatenate((paddles, ball), axis=0)
         if self.debug:
-            if ball is not None:
-                self.all_detections.append(np.concatenate((paddles, ball), axis=0))
-            else:
-                self.all_detections.append(paddles)
+            self.all_detections.append(self.detections)
 
             if len(self.all_detections) >= VIDEO_FRAMES:
                 self.get_observation_video()
@@ -159,8 +268,10 @@ class SimplifiedVolleyballPong():
     def observe(self, observation):
         observation_R = observation[BOARD_TOP:, :, 0]
         # hack: the items are after the 24th line
-        self._update_colors(observation_R)        
-        return self._get_detections(observation_R)
+        self._update_colors(observation_R)
+        # if (self._update_colors(observation_R)):
+            # return self._get_detections(observation_R)
+        return self._get_detections_from_previous(observation_R)
 
     def get_observation_video(self):
         if not self.debug:
