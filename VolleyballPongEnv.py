@@ -10,7 +10,7 @@ from AECWrapper import AECWrapper
 from make_models import make_models
 
 
-logger = setup_logger("VolleyballPongEnv")
+logger = setup_logger("VolleyballPongEnv", "test.log")
 
 
 class VolleyballPongEnvWrapper(EnvWrapper):
@@ -75,6 +75,17 @@ env: ParallelEnv = frame_stack_v3(env, 4)
 
 # must call reset!
 observations, info = env.reset()
+
+for agent in agents:
+    logger.info(f"Agent {agent} observation space: {env.observation_space(agent)}")
+    logger.info(f"Agent {agent} action space: {env.action_space(agent)}")
+    logger.info(f"Agent {agent} random action: {env.action_space(agent).sample()}")
+    logger.info(
+        f"Agent {agent} random action type: {type(env.action_space(agent).sample())}"
+    )
+    for observation in observations[agent]:
+        logger.info(f"Agent {agent} observation shape: {observation.shape}")
+
 
 # create models
 models = make_models(env)
