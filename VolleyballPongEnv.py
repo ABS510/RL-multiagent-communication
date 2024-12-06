@@ -1,16 +1,27 @@
 from typing import Dict, Tuple, List
+from argparse import Namespace
+import random
 
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
 from pettingzoo.utils.conversions import aec_to_parallel
 import numpy as np
+import torch
+import torch.nn as nn
 
 from FrameStackV3 import frame_stack_v3
 from EnvWrapper import EnvWrapper, Intention
 from AECWrapper import AECWrapper
 from Logging import setup_logger
 from MakeModels import make_models
-from utils import np_to_torch, torch_to_np, get_torch_device
+from utils import (
+    np_to_torch,
+    torch_to_np,
+    get_torch_device,
+    idx_to_action,
+    action_to_idx,
+)
+from ExperienceReplay import ReplayBuffer
 
 
 logger = setup_logger("VolleyballPongEnv", "test.log")
@@ -101,26 +112,81 @@ def get_models(env):
     return models
 
 
-def train(env, models):
+def train(env, models, params):
     agents = env.agents
     observations, infos = env.reset()
+
+    replay_buffer = {
+        agent: ReplayBuffer(params.replay_buffer_capacity) for agent in agents
+    }
+
+    criterion = nn.MSELoss()
+    optimizers = {
+        agent: torch.optim.Adam(model.parameters(), lr=params.lr)
+        for agent, model in models.items()
+    }
 
     # the training loop here
     frame_num = 5
     for i in range(frame_num):
         actions = {}
         for agent in agents:
-            observation = observations[agent]
-            observation = np_to_torch(observation, device=device)
-            action = models[agent](observation)
-            action = torch_to_np(action)
+            if random.random() < params.epsilon:
+                action = env.action_space(agent).sample()
+            else:
+                with torch.no_grad():
+                    observation = observations[agent]
+                    observation = np_to_torch(observation, device=device)
+                    q_values = models[agent](observation)
+                    max_idx = torch.argmax(q_values).item()
+                    action = idx_to_action(max_idx, env.action_space(agent))
             actions[agent] = action
-        # actions = {
-        #     agent: env.action_space(agent).sample() for agent in agents
-        # }  # random actions
-        observations, rewards, terminations, truncations, infos = env.step(actions)
+        next_observations, rewards, terminations, truncations, infos = env.step(actions)
         # train network here; use the dictionary observation to get the observation for each agent
 
+        for agent in agents:
+            replay_buffer[agent].push(
+                actions[agent],
+                observations[agent],
+                rewards[agent],
+                terminations[agent],
+                truncations[agent],
+                infos[agent],
+                next_observations[agent],
+            )
+
+        for agent in agents:
+            models[agent].train()
+            if len(replay_buffer[agent]) < params.batch_size:
+                continue
+            (
+                actions,
+                observations,
+                rewards,
+                terminations,
+                truncations,
+                infos,
+                next_observations,
+            ) = replay_buffer[agent].sample(params.batch_size)
+            observations = np_to_torch(observations, device=device)
+            next_observations = np_to_torch(next_observations, device=device)
+            rewards = np_to_torch(rewards, device=device)
+            done = (terminations == True) | (truncations == True)
+            with torch.no_grad():
+                next_q_values = models[agent](next_observations)
+                max_next_q_values = torch.max(next_q_values, dim=1).values
+                targets = rewards + params.gamma * max_next_q_values * (1 - done)
+            q_values = models[agent](observations)
+            action_idx = torch.tensor(
+                [action_to_idx(a, env.action_space(agent)) for a in actions]
+            )
+            q_values = q_values.gather(1, action_idx.unsqueeze(1)).squeeze(1)
+            loss = criterion(q_values, targets)
+            models[agent].zero_grad()
+            loss.backward()
+            optimizers[agent].step()
+
+        observations = next_observations
         logger.info(actions)
         logger.info("-" * 20)
         logger.info(f"Frame {i}")
@@ -132,9 +198,18 @@ def train(env, models):
 
 
 def main():
+    # param = {
+    #     "replay_buffer_capacity": 10000,
+    #     "batch_size": 32,
+    #     "lr": 0.001,
+    #     "gamma": 0.99,
+    # }
+    param = Namespace(
+        replay_buffer_capacity=10000, batch_size=32, lr=0.001, gamma=0.99, epsilon=0.1
+    )
     env = create_env()
     models = get_models(env)
-    train(env, models)
+    train(env, models, param)
 
 
 if __name__ == "__main__":

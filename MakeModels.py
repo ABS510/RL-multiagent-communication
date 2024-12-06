@@ -17,8 +17,10 @@ def make_models(env, device, hidden_sizes=[64, 128]) -> Dict[str, NeuralNet]:
         input_state_space_size = 0
         for item in observation_space:
             input_state_space_size += math.prod(item.shape)
-
-        models[agent] = NeuralNet(
-            input_state_space_size, hidden_sizes, env.action_space(agent)
-        ).to(device)
+        output_size = 1
+        for space in env.action_space(agent).spaces:
+            output_size *= space.n
+        models[agent] = NeuralNet(input_state_space_size, hidden_sizes, output_size).to(
+            device
+        )
     return models
