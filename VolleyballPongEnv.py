@@ -6,6 +6,7 @@ from EnvWrapper import EnvWrapper, Intention
 from Logging import setup_logger
 import numpy as np
 from typing import Dict, Tuple, List
+from AECWrapper import AECWrapper
 
 logger = setup_logger("VolleyballPongEnv")
 
@@ -45,7 +46,6 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 # create the env
 env = volleyball_pong_v3.env()
 
-from AECWrapper import AECWrapper
 env = AECWrapper(env)
 
 env = aec_to_parallel(env)
