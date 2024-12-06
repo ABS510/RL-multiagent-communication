@@ -25,3 +25,18 @@ def get_torch_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"
     return "cpu"
+
+
+def idx_to_action(idx: int, action_space) -> np.ndarray:
+    action = []
+    for space in action_space.spaces:
+        action.append(idx % space.n)
+        idx = idx // space.n
+    return np.array(action)
+
+
+def action_to_idx(action: np.ndarray, action_space) -> int:
+    idx = 0
+    for i, space in enumerate(action_space.spaces):
+        idx += action[i] * np.prod([space.n for space in action_space.spaces[:i]])
+    return int(idx)
