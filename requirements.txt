@@ -3,3 +3,4 @@ pettingzoo[atari]
 pygame
 colorama
 supersuit
+torch

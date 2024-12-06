@@ -7,6 +7,8 @@ from Logging import setup_logger
 import numpy as np
 from typing import Dict, Tuple, List
 from AECWrapper import AECWrapper
+from make_models import make_models
+
 
 logger = setup_logger("VolleyballPongEnv")
 
@@ -73,6 +75,10 @@ env: ParallelEnv = frame_stack_v3(env, 4)
 
 # must call reset!
 observations, info = env.reset()
+
+# create models
+models = make_models(env)
+print(models)
 
 # the training loop here
 frame_num = 10
