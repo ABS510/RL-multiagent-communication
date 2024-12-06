@@ -127,7 +127,7 @@ def train(env, models, params):
     }
 
     # the training loop here
-    frame_num = 5
+    frame_num = 10000
     for i in range(frame_num):
         actions = {}
         for agent in agents:
@@ -142,7 +142,10 @@ def train(env, models, params):
                     action = idx_to_action(max_idx, env.action_space(agent))
             actions[agent] = action
         next_observations, rewards, terminations, truncations, infos = env.step(actions)
-        # train network here; use the dictionary observation to get the observation for each agent
+
+        if terminations[agents[0]] or terminations[agents[2]]:
+            observations, infos = env.reset()
+            continue
 
         for agent in agents:
             replay_buffer[agent].push(
