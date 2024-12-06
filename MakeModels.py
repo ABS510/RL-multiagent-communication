@@ -1,5 +1,5 @@
 import math
-from dqn_nn import NeuralNet
+from Network import NeuralNet
 import torch
 import torch.nn as nn
 from typing import Dict

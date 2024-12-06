@@ -1,13 +1,15 @@
+from typing import Dict, Tuple, List
+
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
 from pettingzoo.utils.conversions import aec_to_parallel
+import numpy as np
+
 from FrameStackV3 import frame_stack_v3
 from EnvWrapper import EnvWrapper, Intention
-from Logging import setup_logger
-import numpy as np
-from typing import Dict, Tuple, List
 from AECWrapper import AECWrapper
-from make_models import make_models
+from Logging import setup_logger
+from MakeModels import make_models
 from utils import np_to_torch, torch_to_np, get_torch_device
 
 
