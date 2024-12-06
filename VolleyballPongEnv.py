@@ -1,17 +1,20 @@
+from typing import Dict, Tuple, List
+
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
 from pettingzoo.utils.conversions import aec_to_parallel
+import numpy as np
+
 from FrameStackV3 import frame_stack_v3
 from EnvWrapper import EnvWrapper, Intention
-from Logging import setup_logger
-import numpy as np
-from typing import Dict, Tuple, List
 from AECWrapper import AECWrapper
-from make_models import make_models
+from Logging import setup_logger
+from MakeModels import make_models
 from utils import np_to_torch, torch_to_np, get_torch_device
 
 
 logger = setup_logger("VolleyballPongEnv", "test.log")
+device = get_torch_device()
 
 
 class VolleyballPongEnvWrapper(EnvWrapper):
@@ -46,78 +49,93 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         return rewards
 
 
-# create the env
-env = volleyball_pong_v3.env()
+def create_env():
+    # create the env
+    env = volleyball_pong_v3.env()
 
-env = AECWrapper(env)
+    env = AECWrapper(env)
 
-env = aec_to_parallel(env)
+    env = aec_to_parallel(env)
 
-env = VolleyballPongEnvWrapper(env)
+    env = VolleyballPongEnvWrapper(env)
 
-# add the intentions
-agents = env.agents
-logger.info(f"Agents: {env.agents}")
-env.add_intention(
-    Intention(agents[0], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
-)
-env.add_intention(
-    Intention(agents[2], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
-)
-env.add_intention(
-    Intention(agents[1], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
-)
-env.add_intention(
-    Intention(agents[3], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
-)
-
-# stack the frames
-env: ParallelEnv = frame_stack_v3(env, 4)
-
-# must call reset!
-observations, info = env.reset()
-
-for agent in agents:
-    logger.info(f"Agent {agent} observation space: {env.observation_space(agent)}")
-    logger.info(f"Agent {agent} action space: {env.action_space(agent)}")
-    logger.info(f"Agent {agent} random action: {env.action_space(agent).sample()}")
-    logger.info(
-        f"Agent {agent} random action type: {type(env.action_space(agent).sample())}"
+    # add the intentions
+    agents = env.agents
+    logger.info(f"Agents: {env.agents}")
+    env.add_intention(
+        Intention(agents[0], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
     )
-    for observation in observations[agent]:
-        logger.info(f"Agent {agent} observation shape: {observation.shape}")
+    env.add_intention(
+        Intention(agents[2], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
+    )
+    env.add_intention(
+        Intention(agents[1], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
+    )
+    env.add_intention(
+        Intention(agents[3], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
+    )
 
+    # stack the frames
+    env: ParallelEnv = frame_stack_v3(env, 4)
 
-device = get_torch_device()
+    # must call reset!
+    env.reset()
 
-# create models
-models = make_models(env, device)
-print(models)
-
-# the training loop here
-frame_num = 5
-for i in range(frame_num):
-    actions = {}
+    logger.info("-" * 10 + "basic info starts" + "-" * 10)
     for agent in agents:
-        observation = observations[agent]
-        observation = np_to_torch(observation, device=device)
-        action = models[agent](observation)
-        action = torch_to_np(action)
-        actions[agent] = action
+        logger.info(f"Agent {agent} observation space: {env.observation_space(agent)}")
+        logger.info(f"Agent {agent} action space: {env.action_space(agent)}")
+    logger.info("-" * 10 + "basic info ends" + "-" * 10)
 
-    # # insert policy here; use the dictionary observation to get the observation for each agent
-    # actions = {
-    #     agent: env.action_space(agent).sample() for agent in agents
-    # }  # random actions
-    observations, rewards, terminations, truncations, infos = env.step(actions)
-    # train network here; use the dictionary observation to get the observation for each agent
+    return env
 
-    logger.info(actions)
-    logger.info("-" * 20)
-    logger.info(f"Frame {i}")
-    for observation in observations[agents[0]]:
-        logger.info(f"Agent {agents[0]} observation shape: {observation.shape}")
-    logger.info(f"Rewards: {rewards}")
-    logger.info(f"Terminations: {terminations}")
-    logger.info(f"Truncations: {truncations}")
-    logger.info(f"Infos: {infos}")
+
+def get_models(env):
+    # create models
+    models = make_models(env, device)
+    for agent, model in models.items():
+        param_num = sum(p.numel() for p in model.parameters())
+        logger.info(f"Agent {agent} model: {model}")
+        logger.info(f"Agent {agent} model parameter number: {param_num}")
+
+    return models
+
+
+def train(env, models):
+    agents = env.agents
+    observations, infos = env.reset()
+
+    # the training loop here
+    frame_num = 5
+    for i in range(frame_num):
+        actions = {}
+        for agent in agents:
+            observation = observations[agent]
+            observation = np_to_torch(observation, device=device)
+            action = models[agent](observation)
+            action = torch_to_np(action)
+            actions[agent] = action
+        # actions = {
+        #     agent: env.action_space(agent).sample() for agent in agents
+        # }  # random actions
+        observations, rewards, terminations, truncations, infos = env.step(actions)
+        # train network here; use the dictionary observation to get the observation for each agent
+
+        logger.info(actions)
+        logger.info("-" * 20)
+        logger.info(f"Frame {i}")
+        for agent in agents:
+            logger.info(f"Agent {agent}")
+            logger.info(
+                f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
+            )
+
+
+def main():
+    env = create_env()
+    models = get_models(env)
+    train(env, models)
+
+
+if __name__ == "__main__":
+    main()
