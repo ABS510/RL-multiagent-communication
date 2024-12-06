@@ -50,6 +50,9 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         Returns:
             Dict[str, float]: The updated rewards.
         """
+        for reward in rewards:
+            # set to numpy float
+            rewards[reward] = np.float32(rewards[reward])
         for intention in intentions:
             src = intention.get_src_agent()
             intention_val = intention.get_intention()
@@ -112,6 +115,39 @@ def get_models(env):
     return models
 
 
+def update(agents, models, replay_buffer, params, criterion, optimizers, env):
+    for agent in agents:
+        models[agent].train()
+        if len(replay_buffer[agent]) < params.batch_size:
+            continue
+        (
+            actions,
+            observations,
+            rewards,
+            terminations,
+            truncations,
+            infos,
+            next_observations,
+        ) = replay_buffer[agent].sample(params.batch_size)
+        observations = np_to_torch(observations, device=device)
+        next_observations = np_to_torch(next_observations, device=device)
+        rewards = torch.tensor(list(rewards), device=device)
+        done = (terminations == True) | (truncations == True)
+        with torch.no_grad():
+            next_q_values = models[agent](next_observations)
+            max_next_q_values = torch.max(next_q_values, dim=1).values
+            targets = rewards + params.gamma * max_next_q_values * (1 - done)
+        q_values = models[agent](observations)
+        action_idx = torch.tensor(
+            [action_to_idx(a, env.action_space(agent)) for a in actions]
+        ).to(device)
+        q_values = q_values.gather(1, action_idx.unsqueeze(1)).squeeze(1)
+        loss = criterion(q_values, targets)
+        models[agent].zero_grad()
+        loss.backward()
+        optimizers[agent].step()
+
+
 def train(env, models, params):
     agents = env.agents
     observations, infos = env.reset()
@@ -158,38 +194,6 @@ def train(env, models, params):
                 next_observations[agent],
             )
 
-        for agent in agents:
-            models[agent].train()
-            if len(replay_buffer[agent]) < params.batch_size:
-                continue
-            (
-                actions,
-                observations,
-                rewards,
-                terminations,
-                truncations,
-                infos,
-                next_observations,
-            ) = replay_buffer[agent].sample(params.batch_size)
-            observations = np_to_torch(observations, device=device)
-            next_observations = np_to_torch(next_observations, device=device)
-            rewards = np_to_torch(rewards, device=device)
-            done = (terminations == True) | (truncations == True)
-            with torch.no_grad():
-                next_q_values = models[agent](next_observations)
-                max_next_q_values = torch.max(next_q_values, dim=1).values
-                targets = rewards + params.gamma * max_next_q_values * (1 - done)
-            q_values = models[agent](observations)
-            action_idx = torch.tensor(
-                [action_to_idx(a, env.action_space(agent)) for a in actions]
-            )
-            q_values = q_values.gather(1, action_idx.unsqueeze(1)).squeeze(1)
-            loss = criterion(q_values, targets)
-            models[agent].zero_grad()
-            loss.backward()
-            optimizers[agent].step()
-
-        observations = next_observations
         logger.info(actions)
         logger.info("-" * 20)
         logger.info(f"Frame {i}")
@@ -199,14 +203,12 @@ def train(env, models, params):
                 f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
             )
 
+        observations = next_observations
+
+        update(agents, models, replay_buffer, params, criterion, optimizers, env)
+
 
 def main():
-    # param = {
-    #     "replay_buffer_capacity": 10000,
-    #     "batch_size": 32,
-    #     "lr": 0.001,
-    #     "gamma": 0.99,
-    # }
     param = Namespace(
         replay_buffer_capacity=10000, batch_size=32, lr=0.001, gamma=0.99, epsilon=0.1
     )
