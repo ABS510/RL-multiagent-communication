@@ -8,6 +8,7 @@ import numpy as np
 from typing import Dict, Tuple, List
 from AECWrapper import AECWrapper
 from make_models import make_models
+from utils import np_to_torch, torch_to_np, get_torch_device
 
 
 logger = setup_logger("VolleyballPongEnv", "test.log")
@@ -87,20 +88,31 @@ for agent in agents:
         logger.info(f"Agent {agent} observation shape: {observation.shape}")
 
 
+device = get_torch_device()
+
 # create models
-models = make_models(env)
+models = make_models(env, device)
 print(models)
 
 # the training loop here
-frame_num = 10
+frame_num = 5
 for i in range(frame_num):
-    # insert policy here; use the dictionary observation to get the observation for each agent
-    actions = {
-        agent: env.action_space(agent).sample() for agent in agents
-    }  # random actions
+    actions = {}
+    for agent in agents:
+        observation = observations[agent]
+        observation = np_to_torch(observation, device=device)
+        action = models[agent](observation)
+        action = torch_to_np(action)
+        actions[agent] = action
+
+    # # insert policy here; use the dictionary observation to get the observation for each agent
+    # actions = {
+    #     agent: env.action_space(agent).sample() for agent in agents
+    # }  # random actions
     observations, rewards, terminations, truncations, infos = env.step(actions)
     # train network here; use the dictionary observation to get the observation for each agent
 
+    logger.info(actions)
     logger.info("-" * 20)
     logger.info(f"Frame {i}")
     for observation in observations[agents[0]]:
