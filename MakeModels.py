@@ -10,6 +10,7 @@ Note: Assumes state of each agent is a Tuple of Boxes!
 """
 
 
+# TODO (Yining): load models from file
 def make_models(env, device, hidden_sizes=[64, 128]) -> Dict[str, NeuralNet]:
     models = {}
     for agent in env.agents:
