@@ -83,7 +83,7 @@ def create_env(params):
 
     env = aec_to_parallel(env)
 
-    env = VolleyballPongEnvWrapper(env)
+    env = VolleyballPongEnvWrapper(env, penalty=params.penalty)
 
     # add the intentions
     agents = env.agents
@@ -265,6 +265,7 @@ def main():
         epsilon_decay=0.1,
         epsilon_decay_type="lin",
         epsilon_min=0.01,
+        penalty=0.1,
     )
     env = create_env(params)
     models = get_models(env)
