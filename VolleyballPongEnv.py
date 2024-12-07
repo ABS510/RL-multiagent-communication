@@ -1,6 +1,7 @@
 from typing import Dict, Tuple, List
 from argparse import Namespace
 import random
+import tqdm
 
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
@@ -33,6 +34,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         logger.info("Initializing VolleyballPongEnvWrapper")
         self.penalty = penalty
         super().__init__(base_env)
+        self.accumulated_rewards = {agent: 0 for agent in self.agents}
 
     def add_reward(
         self,
@@ -53,6 +55,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
+            self.accumulated_rewards[reward] += rewards[reward]
         for intention in intentions:
             src = intention.get_src_agent()
             intention_val = intention.get_intention()
@@ -61,6 +64,9 @@ class VolleyballPongEnvWrapper(EnvWrapper):
             elif intention_val == "jump" and action[src][0].astype(int) != 2:
                 rewards[src] -= self.penalty
         return rewards
+
+    def get_accumulated_rewards(self, agent: str) -> float:
+        return self.accumulated_rewards[agent]
 
 
 def create_env():
@@ -131,7 +137,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         ) = replay_buffer[agent].sample(params.batch_size)
         observations = np_to_torch(observations, device=device)
         next_observations = np_to_torch(next_observations, device=device)
-        rewards = torch.tensor(list(rewards), device=device)
+        rewards = torch.tensor(list(rewards), device=device, dtype=torch.float32)
         done = (terminations == True) | (truncations == True)
         with torch.no_grad():
             next_q_values = models[agent](next_observations)
@@ -164,7 +170,7 @@ def train(env, models, params):
 
     # the training loop here
     frame_num = 10000
-    for i in range(frame_num):
+    for i in tqdm.tqdm(range(frame_num)):
         actions = {}
         for agent in agents:
             if random.random() < params.epsilon:
@@ -179,8 +185,18 @@ def train(env, models, params):
             actions[agent] = action
         next_observations, rewards, terminations, truncations, infos = env.step(actions)
 
-        if terminations[agents[0]] or terminations[agents[2]]:
+        termination = False
+        for agent in agents:
+            if terminations[agent] or truncations[agent]:
+                termination = True
+                break
+        if termination:
             observations, infos = env.reset()
+            logger.info(f"Game over! {infos}")
+            for agent in agents:
+                logger.info(
+                    f"Agent {agent} accumulated reward: {env.get_accumulated_rewards(agent)}"
+                )
             continue
 
         for agent in agents:
@@ -194,14 +210,14 @@ def train(env, models, params):
                 next_observations[agent],
             )
 
-        logger.info(actions)
-        logger.info("-" * 20)
-        logger.info(f"Frame {i}")
-        for agent in agents:
-            logger.info(f"Agent {agent}")
-            logger.info(
-                f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
-            )
+        # logger.info(actions)
+        # logger.info("-" * 20)
+        # logger.info(f"Frame {i}")
+        # for agent in agents:
+        #     logger.info(f"Agent {agent}")
+        #     logger.info(
+        #         f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
+        #     )
 
         observations = next_observations
 
