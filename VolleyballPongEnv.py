@@ -25,6 +25,9 @@ from utils import (
 )
 from ExperienceReplay import ReplayBuffer
 
+import argparse
+import importlib.util
+import sys
 
 logger = setup_logger("VolleyballPongEnv", "test.log")
 device = get_torch_device()
@@ -77,7 +80,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         return res
 
 
-def create_env(params):
+def create_env(params, intention_tuples):
     # create the env
     env = volleyball_pong_v3.env(max_cycles=params.max_frame)
 
@@ -92,18 +95,17 @@ def create_env(params):
     logger.info(f"Agents: {env.agents}")
     # TODO: modify the intentions
     # TODO: config files
-    env.add_intention(
-        Intention(agents[0], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
-    )
-    env.add_intention(
-        Intention(agents[2], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
-    )
-    env.add_intention(
-        Intention(agents[1], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
-    )
-    env.add_intention(
-        Intention(agents[3], [agents[1], agents[3]], ["no_preference", "stay", "jump"])
-    )
+    
+    for intent in intention_tuples:  
+        sender_idx = intent[0]
+        receivers_idx = intent[1]
+        
+        sender = agents[sender_idx]
+        receivers = [agents[idx] for idx in receivers_idx]
+        env.add_intention(
+            Intention(sender, receivers, ["no_preference", "stay", "jump"])
+        )
+        
 
     # stack the frames
     env: ParallelEnv = frame_stack_v3(env, params.stack_size)
@@ -259,30 +261,30 @@ def train(env: ParallelEnv, models, params: Namespace):
             epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
 
 
-def main():
+def main(config):
     # TODO: hyperparameter tuning
-    params = Namespace(
-        replay_buffer_capacity=10000,
-        batch_size=32,
-        lr=0.001,
-        gamma=0.99,
-        max_frame=60 * 60,
-        game_nums=200,
-        epsilon_init=0.5,
-        epsilon_decay=0.1,
-        epsilon_decay_type="lin",
-        epsilon_min=0.01,
-        penalty=0.1,
-        stack_size=4,
-        hidden_sizes=[128, 64],
-    )
-    env = create_env(params)
+    params = config.params
+    intention_tuples = config.intentions_tuples
+    env = create_env(params, intention_tuples)
     models = get_models(env, params)
     train(env, models, params)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Load a Python config file.")
+    parser.add_argument('-c', '--config', type=str, required=True, help="Path to the config .py file")
+    return parser.parse_args()
+
+def import_config(config_path):
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    return config_module
+
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    config = import_config(args.config)
+    main(config)
 
 
 # TODO: visualization
