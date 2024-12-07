@@ -80,9 +80,9 @@ class NeuralNet(nn.Module):
 
     def _stack_tuple(self, x):
         assert isinstance(x, tuple)
-        try:
-            return torch.cat(x, dim=-1)
-        except:
+        if isinstance(x[0], torch.Tensor):
+            return torch.cat([item.view(-1) for item in x], dim=-1)
+        else:
             x = [self._stack_tuple(i) for i in x]
 
             x = torch.stack(x, dim=0)
