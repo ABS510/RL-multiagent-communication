@@ -56,7 +56,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         Returns:
             Dict[str, float]: The updated rewards.
         """
-        # TODO: record rewards for evaluation
+        # TODO(Akshay): record rewards for evaluation
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
@@ -164,7 +164,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         models[agent].zero_grad()
         loss.backward()
         optimizers[agent].step()
-    # TODO: Report the loss
+    # TODO (Janny): Report the loss & values (tqdm?)
 
 
 def train(env: ParallelEnv, models, params: Namespace):
