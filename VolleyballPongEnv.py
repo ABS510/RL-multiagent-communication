@@ -176,6 +176,8 @@ def train(env: ParallelEnv, models, params: Namespace):
         for agent, model in models.items()
     }
 
+    epsilon = params.epsilon_init
+
     # the training loop here
     game_nums = params.game_nums
     maximum_frame = params.max_frame
@@ -185,7 +187,7 @@ def train(env: ParallelEnv, models, params: Namespace):
         for i in tqdm.tqdm(range(maximum_frame)):
             actions = {}
             for agent in agents:
-                if random.random() < params.epsilon:
+                if random.random() < epsilon:
                     action = env.action_space(agent).sample()
                 else:
                     with torch.no_grad():
@@ -243,6 +245,13 @@ def train(env: ParallelEnv, models, params: Namespace):
                 model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
             )
 
+        # update epsilon
+
+        if params.epsilon_decay_type == "lin":
+            epsilon = max(params.epsilon_min, epsilon - params.epsilon_decay)
+        elif params.epsilon_decay_type == "mul":
+            epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
+
 
 def main():
     params = Namespace(
@@ -250,9 +259,12 @@ def main():
         batch_size=32,
         lr=0.001,
         gamma=0.99,
-        epsilon=0.1,
         max_frame=60 * 10,
         game_nums=200,
+        epsilon_init=0.5,
+        epsilon_decay=0.1,
+        epsilon_decay_type="lin",
+        epsilon_min=0.01,
     )
     env = create_env(params)
     models = get_models(env)
