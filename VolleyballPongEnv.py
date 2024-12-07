@@ -56,7 +56,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
-            self.accumulated_rewards[reward] += rewards[reward]
+            self.accumulated_rewards[reward] += max(rewards[reward], 0)
         for intention in intentions:
             src = intention.get_src_agent()
             intention_val = intention.get_intention()
@@ -68,6 +68,11 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
+
+    def reset(self, seed=None, options=None):
+        res = super().reset(seed, options)
+        self.accumulated_rewards = {agent: 0 for agent in self.agents}
+        return res
 
 
 def create_env(params):
@@ -155,10 +160,10 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         optimizers[agent].step()
 
 
-def train(env, models, params):
+def train(env: ParallelEnv, models, params: Namespace):
     if not os.path.exists("models"):
         os.makedirs("models")
-    
+
     agents = env.agents
 
     replay_buffer = {
@@ -170,7 +175,7 @@ def train(env, models, params):
         agent: torch.optim.Adam(model.parameters(), lr=params.lr)
         for agent, model in models.items()
     }
-    
+
     epsilon = params.epsilon_init
 
     # the training loop here
@@ -239,12 +244,12 @@ def train(env, models, params):
             torch.save(
                 model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
             )
-        
+
         # update epsilon
-        
-        if params.epsilon_decay_type == 'lin':
+
+        if params.epsilon_decay_type == "lin":
             epsilon = max(params.epsilon_min, epsilon - params.epsilon_decay)
-        elif params.epsilon_decay_type == 'mul':
+        elif params.epsilon_decay_type == "mul":
             epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
 
 
@@ -254,11 +259,11 @@ def main():
         batch_size=32,
         lr=0.001,
         gamma=0.99,
-        max_frame=60,
-        game_nums=10,
+        max_frame=60 * 10,
+        game_nums=200,
         epsilon_init=0.5,
         epsilon_decay=0.1,
-        epsilon_decay_type='none',
+        epsilon_decay_type="lin",
         epsilon_min=0.01,
     )
     env = create_env(params)
