@@ -53,10 +53,12 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         Returns:
             Dict[str, float]: The updated rewards.
         """
+        # TODO: record rewards for evaluation
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
             self.accumulated_rewards[reward] += max(rewards[reward], 0)
+        # TODO: positive incentives for following intention?
         for intention in intentions:
             src = intention.get_src_agent()
             intention_val = intention.get_intention()
@@ -88,6 +90,8 @@ def create_env(params):
     # add the intentions
     agents = env.agents
     logger.info(f"Agents: {env.agents}")
+    # TODO: modify the intentions
+    # TODO: config files
     env.add_intention(
         Intention(agents[0], [agents[0], agents[2]], ["no_preference", "stay", "jump"])
     )
@@ -102,7 +106,7 @@ def create_env(params):
     )
 
     # stack the frames
-    env: ParallelEnv = frame_stack_v3(env, 4)
+    env: ParallelEnv = frame_stack_v3(env, params.stack_size)
 
     # must call reset!
     env.reset()
@@ -116,9 +120,9 @@ def create_env(params):
     return env
 
 
-def get_models(env):
+def get_models(env, params):
     # create models
-    models = make_models(env, device)
+    models = make_models(env, device, hidden_sizes=params.hidden_sizes)
     for agent, model in models.items():
         param_num = sum(p.numel() for p in model.parameters())
         logger.info(f"Agent {agent} model: {model}")
@@ -158,6 +162,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         models[agent].zero_grad()
         loss.backward()
         optimizers[agent].step()
+    # TODO: Report the loss
 
 
 def train(env: ParallelEnv, models, params: Namespace):
@@ -170,6 +175,7 @@ def train(env: ParallelEnv, models, params: Namespace):
         agent: ReplayBuffer(params.replay_buffer_capacity) for agent in agents
     }
 
+    # TODO: different losses?
     criterion = nn.MSELoss()
     optimizers = {
         agent: torch.optim.Adam(model.parameters(), lr=params.lr)
@@ -254,23 +260,29 @@ def train(env: ParallelEnv, models, params: Namespace):
 
 
 def main():
+    # TODO: hyperparameter tuning
     params = Namespace(
         replay_buffer_capacity=10000,
         batch_size=32,
         lr=0.001,
         gamma=0.99,
-        max_frame=60 * 10,
+        max_frame=60 * 60,
         game_nums=200,
         epsilon_init=0.5,
         epsilon_decay=0.1,
         epsilon_decay_type="lin",
         epsilon_min=0.01,
         penalty=0.1,
+        stack_size=4,
+        hidden_sizes=[128, 64],
     )
     env = create_env(params)
-    models = get_models(env)
+    models = get_models(env, params)
     train(env, models, params)
 
 
 if __name__ == "__main__":
     main()
+
+
+# TODO: visualization

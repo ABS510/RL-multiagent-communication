@@ -19,11 +19,11 @@ def torch_to_np(x) -> Tuple[np.ndarray, ...]:
 
 
 def get_torch_device() -> str:
-    # cuda or cpu or mps
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
+    # # cuda or cpu or mps
+    # if torch.cuda.is_available():
+    #     return "cuda"
+    # if torch.backends.mps.is_available():
+    #     return "mps"
     return "cpu"
 
 

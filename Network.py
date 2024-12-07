@@ -7,6 +7,7 @@ Neural Network class for DQN
 """
 
 
+# TODO: Different model arch
 class NeuralNet(nn.Module):
     """
     Params:
