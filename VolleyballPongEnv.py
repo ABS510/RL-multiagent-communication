@@ -56,7 +56,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
-            self.accumulated_rewards[reward] += rewards[reward]
+            self.accumulated_rewards[reward] += max(rewards[reward], 0)
         for intention in intentions:
             src = intention.get_src_agent()
             intention_val = intention.get_intention()
@@ -68,6 +68,11 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
+
+    def reset(self, seed=None, options=None):
+        res = super().reset(seed, options)
+        self.accumulated_rewards = {agent: 0 for agent in self.agents}
+        return res
 
 
 def create_env(params):
@@ -155,10 +160,10 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         optimizers[agent].step()
 
 
-def train(env, models, params):
+def train(env: ParallelEnv, models, params: Namespace):
     if not os.path.exists("models"):
         os.makedirs("models")
-    
+
     agents = env.agents
 
     replay_buffer = {
@@ -246,8 +251,8 @@ def main():
         lr=0.001,
         gamma=0.99,
         epsilon=0.1,
-        max_frame=60,
-        game_nums=2,
+        max_frame=60 * 10,
+        game_nums=200,
     )
     env = create_env(params)
     models = get_models(env)
