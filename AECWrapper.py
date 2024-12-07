@@ -1,3 +1,4 @@
+import time
 from pettingzoo.utils.wrappers.order_enforcing import OrderEnforcingWrapper
 from pettingzoo.atari import volleyball_pong_v3
 import numpy as np
@@ -32,11 +33,13 @@ class AECWrapper(OrderEnforcingWrapper):
         high = np.zeros(10)
         high[::2] = 210
         high[1::2] = 160
-        return gym.spaces.Box(low=np.zeros(10), high=high, dtype=np.int64)
+        return gym.spaces.Box(low=np.zeros((5,2)), high=high.reshape((5,2)), dtype=np.int64)
 
     def observe(self, agent):
         screen = super().observe(agent)
-        self.get_team_colors(screen)
+
+        if self.right_team_color is None or self.left_team_color is None:
+            self.get_team_colors(screen)
         res = self.get_detections(screen)
         return res
 
@@ -53,7 +56,6 @@ class AECWrapper(OrderEnforcingWrapper):
                 if diff < min_diff:
                     if len(detections) > 0 and detections[-1][0] == i:
                         continue
-                    # print(detections)
 
                     if diff == 0:
                         return i,j
@@ -67,66 +69,65 @@ class AECWrapper(OrderEnforcingWrapper):
         where_white = np.all(img == ball_color, axis=-1) & self.ball_mask
         ball_locs = np.where(where_white)
         if (len(ball_locs[0]) == 0):
-            return np.array([-1,-1])
+            return np.array([0, 0])
         else:
             return np.array([ball_locs[0][0], ball_locs[1][0]])
 
-    # def find_ball(self, img, ball_color):
+    def find_paddle(self, color, space, rows, col_start):
+        mask = np.all(space - color, axis=-1)
+        indices = np.where(np.logical_not(mask))
+        row = indices[0][0]
+        min_col = indices[1].min()
 
-    #     SMALL_SHAPE = (4, 8)
-    #     LARGE_SHAPE = (4, 16)
-    #     BALL_SHAPE = (4, 2)
-    #     BORDER_CORNER_SHAPE = (10, 8)
-    #     BOARD_TOP = 24
-    #     VIDEO_FRAMES = 500
+        return np.array([rows[row], col_start + min_col])
 
-    #     ball_region = np.pad(
-    #         np.ones(BALL_SHAPE),
-    #         2
-    #     )
-
-    #     bin_img = (img == ball_color).astype(int)
-
-    #     candidate =  self.find_rectangle(bin_img, ball_region, [])
-    #     if candidate == BORDER_CORNER_SHAPE:
-    #         # :)
-    #         return None
-    #     return candidate
 
     def get_detections(self, screen):
-      observation_R = screen[BOARD_TOP:, :, 0]
-      # detect per frame
-      detections = []
-      team_candidates = (101, 223)
-      for candidate_color in team_candidates:
-          for shapes in LARGE_SHAPE, SMALL_SHAPE:
-              paddle_candidate = self.find_rectangle(
-                  observation_R,
-                  candidate_color * np.ones(shapes),
-                  detections
-              )
+        N = screen.shape[1]
 
-              detections.append(paddle_candidate)
-      border_color = np.array([236,236,236])
-      detected_ball = self.find_ball(screen, border_color)
+        # in order, first_0, second_0, and others
+        large_search_space = screen[LARGE_ROWS]
+        small_search_space = screen[SMALL_ROWS]
+        first_0_detection = self.find_paddle(self.right_team_color, large_search_space[:, N//2:, :], LARGE_ROWS, N//2)
+        second_0_detection = self.find_paddle(self.left_team_color, large_search_space[:, :N//2, :], LARGE_ROWS, 0)
+        third_0_detection = self.find_paddle(self.right_team_color, small_search_space[:, N//2:, :], SMALL_ROWS, N//2)
+        fourth_0_detection = self.find_paddle(self.left_team_color, small_search_space[:, :N//2, :], SMALL_ROWS, 0)
 
-      paddles = np.array(detections).reshape(-1)
-      ball = np.array(detected_ball).reshape(-1) if detected_ball is not None else np.array([0,0]).reshape(-1)
+        border_color = np.array([236,236,236])
+        detected_ball = self.find_ball(screen, border_color)
 
-      state_vector = np.concatenate((paddles, ball))
+        paddles = np.array([
+                first_0_detection,
+                second_0_detection,
+                third_0_detection,
+                fourth_0_detection
+        ])
 
-      return state_vector
+        state_vector = np.concatenate((paddles, detected_ball.reshape((1,-1))), axis=0)
+
+        return state_vector
 
     def get_team_colors(self, observation):
-        observation_search = observation[SEARCH_ROWS]
-        M, N, _ = observation.shape
+        N = observation.shape[1]
+
+        if self.right_team_color is None:
+            self.right_team_color = np.zeros((3,), dtype=np.uint8)
+        if self.left_team_color is None:
+            self.left_team_color = np.zeros((3,), dtype=np.uint8)
+
 
         for c in range(3):
-            right_colors = np.unique(observation[:, N//2:, c])
-            left_colors = np.unique(observation[:, :N//2, c])
+            right_colors = np.unique(observation[SEARCH_ROWS, N//2:, c])
+            left_colors = np.unique(observation[SEARCH_ROWS, :N//2, c])
 
             right_paddle_colors = np.setdiff1d(right_colors, left_colors)
             left_paddle_colors = np.setdiff1d(left_colors, right_colors)
+
+            self.right_team_color[c] = right_paddle_colors[0]
+            self.left_team_color[c] = left_paddle_colors[0]
+
+
+
 
 
         
