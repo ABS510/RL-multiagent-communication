@@ -263,6 +263,3 @@ class EnvWrapper(aec_to_parallel_wrapper):
             Dict[str, float]: The updated rewards.
         """
         return rewards
-
-
-# TODO: For customized rewards that depend on the intentions, override the add_reward method.
