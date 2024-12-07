@@ -15,6 +15,13 @@ class AECWrapper(OrderEnforcingWrapper):
             self.env = volleyball_pong_v3.env()
         else:
             self.env = env
+            
+        mask = np.zeros((210, 160), dtype=np.uint8)
+        mask[:,8:152] = 1
+        mask[0:50,:] = 0
+        mask[130:,80-4:80+4] = 0
+        mask[180:,:] = 0
+        self.ball_mask = mask
 
     def observation_space(self, agent):
         high = np.zeros(10)
@@ -23,9 +30,8 @@ class AECWrapper(OrderEnforcingWrapper):
         return gym.spaces.Box(low=np.zeros(10), high=high, dtype=np.int64)
 
     def observe(self, agent):
-        BOARD_TOP = 24
         screen = super().observe(agent)
-        res = self.get_detections(screen[BOARD_TOP:, :, 0])
+        res = self.get_detections(screen)
         return res
 
     def find_rectangle(self, img, paddle, detections):
@@ -50,36 +56,45 @@ class AECWrapper(OrderEnforcingWrapper):
                     min_j = j
 
         return min_i, min_j
-
+    
     def find_ball(self, img, ball_color):
+        where_white = np.all(img == ball_color, axis=-1) & self.ball_mask
+        ball_locs = np.where(where_white)
+        if (len(ball_locs[0]) == 0):
+            return np.array([-1,-1])
+        else:
+            return np.array([ball_locs[0][0], ball_locs[1][0]])
 
-        SMALL_SHAPE = (4, 8)
-        LARGE_SHAPE = (4, 16)
-        BALL_SHAPE = (4, 2)
-        BORDER_CORNER_SHAPE = (10, 8)
-        BOARD_TOP = 24
-        VIDEO_FRAMES = 500
+    # def find_ball(self, img, ball_color):
 
-        ball_region = np.pad(
-            np.ones(BALL_SHAPE),
-            2
-        )
+    #     SMALL_SHAPE = (4, 8)
+    #     LARGE_SHAPE = (4, 16)
+    #     BALL_SHAPE = (4, 2)
+    #     BORDER_CORNER_SHAPE = (10, 8)
+    #     BOARD_TOP = 24
+    #     VIDEO_FRAMES = 500
 
-        bin_img = (img == ball_color).astype(int)
+    #     ball_region = np.pad(
+    #         np.ones(BALL_SHAPE),
+    #         2
+    #     )
 
-        candidate =  self.find_rectangle(bin_img, ball_region, [])
-        if candidate == BORDER_CORNER_SHAPE:
-            # :)
-            return None
-        return candidate
+    #     bin_img = (img == ball_color).astype(int)
 
-    def get_detections(self, observation_R):
+    #     candidate =  self.find_rectangle(bin_img, ball_region, [])
+    #     if candidate == BORDER_CORNER_SHAPE:
+    #         # :)
+    #         return None
+    #     return candidate
+
+    def get_detections(self, screen):
       SMALL_SHAPE = (4, 8)
       LARGE_SHAPE = (4, 16)
       BALL_SHAPE = (4, 2)
       BORDER_CORNER_SHAPE = (10, 8)
       BOARD_TOP = 24
       VIDEO_FRAMES = 500
+      observation_R = screen[BOARD_TOP:, :, 0]
       # detect per frame
       detections = []
       team_candidates = (101, 223)
@@ -92,8 +107,8 @@ class AECWrapper(OrderEnforcingWrapper):
               )
 
               detections.append(paddle_candidate)
-      border_color = 236
-      detected_ball = self.find_ball(observation_R, border_color)
+      border_color = np.array([236,236,236])
+      detected_ball = self.find_ball(screen, border_color)
 
       paddles = np.array(detections).reshape(-1)
       ball = np.array(detected_ball).reshape(-1) if detected_ball is not None else np.array([0,0]).reshape(-1)
