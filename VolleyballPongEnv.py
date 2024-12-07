@@ -2,6 +2,7 @@ from typing import Dict, Tuple, List
 from argparse import Namespace
 import random
 import tqdm
+import os
 
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
@@ -69,9 +70,9 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         return self.accumulated_rewards[agent]
 
 
-def create_env():
+def create_env(params):
     # create the env
-    env = volleyball_pong_v3.env()
+    env = volleyball_pong_v3.env(max_cycles=params.max_frame)
 
     env = AECWrapper(env)
 
@@ -155,8 +156,10 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
 
 
 def train(env, models, params):
+    if not os.path.exists("models"):
+        os.makedirs("models")
+    
     agents = env.agents
-    observations, infos = env.reset()
 
     replay_buffer = {
         agent: ReplayBuffer(params.replay_buffer_capacity) for agent in agents
@@ -169,68 +172,86 @@ def train(env, models, params):
     }
 
     # the training loop here
-    frame_num = 10000
-    for i in tqdm.tqdm(range(frame_num)):
-        actions = {}
-        for agent in agents:
-            if random.random() < params.epsilon:
-                action = env.action_space(agent).sample()
-            else:
-                with torch.no_grad():
-                    observation = observations[agent]
-                    observation = np_to_torch(observation, device=device)
-                    q_values = models[agent](observation)
-                    max_idx = torch.argmax(q_values).item()
-                    action = idx_to_action(max_idx, env.action_space(agent))
-            actions[agent] = action
-        next_observations, rewards, terminations, truncations, infos = env.step(actions)
-
-        termination = False
-        for agent in agents:
-            if terminations[agent] or truncations[agent]:
-                termination = True
-                break
-        if termination:
-            observations, infos = env.reset()
-            logger.info(f"Game over! {infos}")
+    game_nums = params.game_nums
+    maximum_frame = params.max_frame
+    for game_num in range(game_nums):
+        logger.info(f"Game {game_num}")
+        observations, infos = env.reset()
+        for i in tqdm.tqdm(range(maximum_frame)):
+            actions = {}
             for agent in agents:
-                logger.info(
-                    f"Agent {agent} accumulated reward: {env.get_accumulated_rewards(agent)}"
-                )
-            continue
-
-        for agent in agents:
-            replay_buffer[agent].push(
-                actions[agent],
-                observations[agent],
-                rewards[agent],
-                terminations[agent],
-                truncations[agent],
-                infos[agent],
-                next_observations[agent],
+                if random.random() < params.epsilon:
+                    action = env.action_space(agent).sample()
+                else:
+                    with torch.no_grad():
+                        observation = observations[agent]
+                        observation = np_to_torch(observation, device=device)
+                        q_values = models[agent](observation)
+                        max_idx = torch.argmax(q_values).item()
+                        action = idx_to_action(max_idx, env.action_space(agent))
+                actions[agent] = action
+            next_observations, rewards, terminations, truncations, infos = env.step(
+                actions
             )
 
-        # logger.info(actions)
-        # logger.info("-" * 20)
-        # logger.info(f"Frame {i}")
-        # for agent in agents:
-        #     logger.info(f"Agent {agent}")
-        #     logger.info(
-        #         f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
-        #     )
+            termination = False
+            if terminations == {} or truncations == {}:  # empty dict
+                termination = True
+            else:
+                for agent in agents:
+                    if truncations[agent] or terminations[agent]:
+                        termination = True
+                        break
+            if termination:
+                break
 
-        observations = next_observations
+            for agent in agents:
+                replay_buffer[agent].push(
+                    actions[agent],
+                    observations[agent],
+                    rewards[agent],
+                    terminations[agent],
+                    truncations[agent],
+                    infos[agent],
+                    next_observations[agent],
+                )
 
-        update(agents, models, replay_buffer, params, criterion, optimizers, env)
+            # logger.info(actions)
+            # logger.info("-" * 20)
+            # logger.info(f"Frame {i}")
+            # for agent in agents:
+            #     logger.info(f"Agent {agent}")
+            #     logger.info(
+            #         f"\taction: {actions[agent]}\treward: {rewards[agent]}\ttermination: {terminations[agent]}\ttruncate: {truncations[agent]}\tinfo: {infos[agent]}"
+            #     )
+
+            observations = next_observations
+
+            update(agents, models, replay_buffer, params, criterion, optimizers, env)
+        for agent in agents:
+            logger.info(
+                f"Agent {agent} accumulated reward: {env.get_accumulated_rewards(agent)}"
+            )
+        # save model
+        for agent, model in models.items():
+            torch.save(
+                model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
+            )
 
 
 def main():
-    param = Namespace(
-        replay_buffer_capacity=10000, batch_size=32, lr=0.001, gamma=0.99, epsilon=0.1
+    params = Namespace(
+        replay_buffer_capacity=10000,
+        batch_size=32,
+        lr=0.001,
+        gamma=0.99,
+        epsilon=0.1,
+        max_frame=60,
+        game_nums=2,
     )
-    env = create_env()
+    env = create_env(params)
     models = get_models(env)
-    train(env, models, param)
+    train(env, models, params)
 
 
 if __name__ == "__main__":
