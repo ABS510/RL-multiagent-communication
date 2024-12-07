@@ -25,14 +25,15 @@ KEYS = {
 }
 
 KEYS_NAMES = {
-    pygame.K_UP: 'UP',  # Move up
-    pygame.K_DOWN: 'DOWN',  # Move down
-    pygame.K_LEFT: 'LEFT',  # Move left
-    pygame.K_RIGHT: 'RIGHT',  # Move right
-    pygame.K_SPACE: 'SPACE',  # Spike
+    pygame.K_UP: "UP",  # Move up
+    pygame.K_DOWN: "DOWN",  # Move down
+    pygame.K_LEFT: "LEFT",  # Move left
+    pygame.K_RIGHT: "RIGHT",  # Move right
+    pygame.K_SPACE: "SPACE",  # Spike
 }
 
-HUMAN_AGENTS = ['first_0', 'second_0', 'third_0', 'fourth_0']
+HUMAN_AGENTS = ["first_0", "second_0", "third_0", "fourth_0"]
+
 
 def get_human_action():
     """Capture keyboard inputs and return the corresponding action."""
@@ -43,6 +44,7 @@ def get_human_action():
         if keys[key]:
             return action  # Return the action corresponding to the key press
     return 0  # No action if no key is pressed
+
 
 prev_human_agent = 0
 prev_action = 0
@@ -60,7 +62,7 @@ for agent in env.agent_iter():
     # uniques = np.concatenate((uniques, np.expand_dims(paddles, 2)), axis=2)
     # uniques = np.unique(uniques, axis=2)
     # print("unqiue:", uniques)
-    # np.savetxt("observation_ball.txt", observation[:, :, 0], fmt='%d') 
+    # np.savetxt("observation_ball.txt", observation[:, :, 0], fmt='%d')
 
     if termination or truncation:
         action = None
@@ -84,11 +86,11 @@ for agent in env.agent_iter():
         # if action persists, dispatch only to current human agent
         elif prev_action == action and HUMAN_AGENTS[prev_human_agent] == agent:
             env.step(action)
-        
+
         else:
             env.step(0)
     else:
-        action = env.action_space(agent).sample() 
+        action = env.action_space(agent).sample()
         env.step(action)
 
 env.close()
