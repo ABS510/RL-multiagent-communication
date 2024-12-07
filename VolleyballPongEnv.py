@@ -95,17 +95,16 @@ def create_env(params, intention_tuples):
     logger.info(f"Agents: {env.agents}")
     # TODO: modify the intentions
     # TODO: config files
-    
-    for intent in intention_tuples:  
+
+    for intent in intention_tuples:
         sender_idx = intent[0]
         receivers_idx = intent[1]
-        
+
         sender = agents[sender_idx]
         receivers = [agents[idx] for idx in receivers_idx]
         env.add_intention(
             Intention(sender, receivers, ["no_preference", "stay", "jump"])
         )
-        
 
     # stack the frames
     env: ParallelEnv = frame_stack_v3(env, params.stack_size)
@@ -167,6 +166,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
     # TODO (Janny): Report the loss & values (tqdm?)
 
 
+# TODO: DDQN?
 def train(env: ParallelEnv, models, params: Namespace):
     if not os.path.exists("models"):
         os.makedirs("models")
@@ -248,6 +248,7 @@ def train(env: ParallelEnv, models, params: Namespace):
                 f"Agent {agent} accumulated reward: {env.get_accumulated_rewards(agent)}"
             )
         # save model
+        # TODO: every 10 games?
         for agent, model in models.items():
             torch.save(
                 model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
@@ -272,14 +273,18 @@ def main(config):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Load a Python config file.")
-    parser.add_argument('-c', '--config', type=str, required=True, help="Path to the config .py file")
+    parser.add_argument(
+        "-c", "--config", type=str, required=True, help="Path to the config .py file"
+    )
     return parser.parse_args()
+
 
 def import_config(config_path):
     spec = importlib.util.spec_from_file_location("config", config_path)
     config_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config_module)
     return config_module
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -288,3 +293,4 @@ if __name__ == "__main__":
 
 
 # TODO: visualization
+# TODO: evaluation
