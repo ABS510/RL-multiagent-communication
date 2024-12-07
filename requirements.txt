@@ -4,3 +4,4 @@ pygame
 colorama
 supersuit
 torch
+tqdm

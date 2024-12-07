@@ -170,6 +170,8 @@ def train(env, models, params):
         agent: torch.optim.Adam(model.parameters(), lr=params.lr)
         for agent, model in models.items()
     }
+    
+    epsilon = params.epsilon_init
 
     # the training loop here
     game_nums = params.game_nums
@@ -180,7 +182,7 @@ def train(env, models, params):
         for i in tqdm.tqdm(range(maximum_frame)):
             actions = {}
             for agent in agents:
-                if random.random() < params.epsilon:
+                if random.random() < epsilon:
                     action = env.action_space(agent).sample()
                 else:
                     with torch.no_grad():
@@ -237,6 +239,13 @@ def train(env, models, params):
             torch.save(
                 model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
             )
+        
+        # update epsilon
+        
+        if params.epsilon_decay_type == 'lin':
+            epsilon = max(params.epsilon_min, epsilon - params.epsilon_decay)
+        elif params.epsilon_decay_type == 'mul':
+            epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
 
 
 def main():
@@ -245,9 +254,12 @@ def main():
         batch_size=32,
         lr=0.001,
         gamma=0.99,
-        epsilon=0.1,
         max_frame=60,
-        game_nums=2,
+        game_nums=10,
+        epsilon_init=0.5,
+        epsilon_decay=0.1,
+        epsilon_decay_type='none',
+        epsilon_min=0.01,
     )
     env = create_env(params)
     models = get_models(env)
