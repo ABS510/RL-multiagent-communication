@@ -3,6 +3,8 @@ from pettingzoo.atari import volleyball_pong_v3
 import numpy as np
 import gymnasium as gym
 
+from constants import *
+
 '''
 Simplified environment for Volley Ball Pong.
 Initialize as AECWrapper(volleyball_pong_v3.env())
@@ -15,6 +17,9 @@ class AECWrapper(OrderEnforcingWrapper):
             self.env = volleyball_pong_v3.env()
         else:
             self.env = env
+        
+        self.right_team_color = None
+        self.left_team_color = None
             
         mask = np.zeros((210, 160), dtype=np.uint8)
         mask[:,8:152] = 1
@@ -31,6 +36,7 @@ class AECWrapper(OrderEnforcingWrapper):
 
     def observe(self, agent):
         screen = super().observe(agent)
+        self.get_team_colors(screen)
         res = self.get_detections(screen)
         return res
 
@@ -88,12 +94,6 @@ class AECWrapper(OrderEnforcingWrapper):
     #     return candidate
 
     def get_detections(self, screen):
-      SMALL_SHAPE = (4, 8)
-      LARGE_SHAPE = (4, 16)
-      BALL_SHAPE = (4, 2)
-      BORDER_CORNER_SHAPE = (10, 8)
-      BOARD_TOP = 24
-      VIDEO_FRAMES = 500
       observation_R = screen[BOARD_TOP:, :, 0]
       # detect per frame
       detections = []
@@ -116,3 +116,18 @@ class AECWrapper(OrderEnforcingWrapper):
       state_vector = np.concatenate((paddles, ball))
 
       return state_vector
+
+    def get_team_colors(self, observation):
+        observation_search = observation[SEARCH_ROWS]
+        M, N, _ = observation.shape
+
+        for c in range(3):
+            right_colors = np.unique(observation[:, N//2:, c])
+            left_colors = np.unique(observation[:, :N//2, c])
+
+            right_paddle_colors = np.setdiff1d(right_colors, left_colors)
+            left_paddle_colors = np.setdiff1d(left_colors, right_colors)
+
+
+        
+

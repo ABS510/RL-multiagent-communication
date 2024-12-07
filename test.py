@@ -50,12 +50,16 @@ prev_action = 0
 sc = None
 
 observer = SimplifiedVolleyballPong(debug=True)
+# uniques = np.zeros((4, 2, 1))
 
 for agent in env.agent_iter():
     observation, reward, termination, truncation, info = env.last()
     # print(observation.shape)
     # (210, 160, 3)
     paddles, ball = observer.observe(observation)
+    # uniques = np.concatenate((uniques, np.expand_dims(paddles, 2)), axis=2)
+    # uniques = np.unique(uniques, axis=2)
+    # print("unqiue:", uniques)
     # np.savetxt("observation_ball.txt", observation[:, :, 0], fmt='%d') 
 
     if termination or truncation:

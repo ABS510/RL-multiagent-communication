@@ -3,15 +3,10 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 from typing import Tuple
+from constants import *
 from Detection import Detection
 
 COLORS = ['blue', 'blue', 'orange', 'orange', 'black']
-SMALL_SHAPE = (4, 8)
-LARGE_SHAPE = (4, 16)
-BALL_SHAPE = (4, 2)
-BORDER_CORNER_SHAPE = (10, 8)
-BOARD_TOP = 24
-VIDEO_FRAMES = 500
 
 # first_0 = large RHS player
 # second_0 = large LHS player
