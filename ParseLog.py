@@ -22,12 +22,9 @@ def read_log(log_fname, out_dir):
             game_start_match = re.match(r'.* - VolleyballPongEnv - INFO - Game (\d+)', line)
             if game_start_match:
                 training_game = int(game_start_match.group(1))
-                eval_game = -1 # end eval
-                # print("training_game", training_game)
 
                 train_df_list.append({})
                 continue
-                # print(train_df)
             
             # train log
             train_reward_match = re.match(r'.* - VolleyballPongEnv - INFO - Agent (\w+_0) accumulated reward: (.+)', line)
@@ -36,7 +33,6 @@ def read_log(log_fname, out_dir):
                 reward = train_reward_match.group(2)
                 col_name = agent_name + '_reward'
 
-                # train_df.loc[training_game][col_name] = float(reward)
                 train_df_list[training_game][col_name] = float(reward)
                 continue
 
@@ -46,7 +42,6 @@ def read_log(log_fname, out_dir):
                 loss = train_loss_match.group(2)
                 col_name = agent_name + '_loss'
 
-                # train_df.loc[training_game][col_name] = float(loss)
                 train_df_list[training_game][col_name] = float(loss)
                 continue
             
@@ -66,7 +61,6 @@ def read_log(log_fname, out_dir):
                 reward = eval_reward_match.group(2)
                 col_name = agent_name + '_reward'
 
-                # train_df.loc[training_game][col_name] = float(reward)
                 eval_df_list[-1][col_name] = float(reward)
                 continue
 
@@ -76,20 +70,13 @@ def read_log(log_fname, out_dir):
                 score = eval_score_match.group(2)
                 col_name = agent_name + '_score'
 
-                # train_df.loc[training_game][col_name] = float(reward)
                 eval_df_list[-1][col_name] = float(score)
                 continue
 
 
-    # train_df = pd.DataFrame(columns=[*[a+'_reward' for a in agents],
-    #                                  *[a+'_loss' for a in agents]]) 
-    train_df = pd.DataFrame(train_df_list)
-    print(train_df.head())
+    train_df = pd.DataFrame(train_df_list).dropna()
     train_df.to_csv(os.path.join(out_dir, 'train_log.csv'), index_label='Game')
-    # eval_df = pd.DataFrame(columns=[*[a+'_reward' for a in agents],
-    #                                  *[a+'_score' for a in agents]]) 
-    eval_df = pd.DataFrame(eval_df_list)
-    print(eval_df.head())
+    eval_df = pd.DataFrame(eval_df_list).dropna()
     eval_df.to_csv(os.path.join(out_dir, 'eval_log.csv'), index=False)
 
 
@@ -113,20 +100,6 @@ if __name__ == "__main__":
         os.makedirs(out_dir)
     
     read_log(log_fname, out_dir)
-    
-        # reader = io.BufferedReader(f)
-
-        # while True:
-        #     line = reader.readline() 
-        #     if not line: 
-        #         break  # End of file reached
-        #     print(line)
-
-        # first_line = buffer.readline().decode().rstrip()
-        # second_line = buffer.readline().decode().rstrip()
-
-        # print(first_line) 
-        # print(second_line) 
 
 
 
