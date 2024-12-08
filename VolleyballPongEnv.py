@@ -381,7 +381,7 @@ def main(config):
         eval_time=10,
         save_model_time=10,
         log_dir=log_dir,
-        num_game_eval=1,
+        num_game_eval=50,
     )
 
 
