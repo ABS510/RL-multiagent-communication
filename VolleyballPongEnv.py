@@ -16,6 +16,7 @@ from EnvWrapper import EnvWrapper, Intention
 from AECWrapper import AECWrapper
 from Logging import setup_logger
 from MakeModels import make_models
+from Evaluate import evaluate
 from utils import (
     np_to_torch,
     torch_to_np,
@@ -38,7 +39,9 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         logger.info("Initializing VolleyballPongEnvWrapper")
         self.penalty = penalty
         super().__init__(base_env)
+        self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
+
 
     def add_reward(
         self,
@@ -60,7 +63,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         for reward in rewards:
             # set to numpy float
             rewards[reward] = np.float32(rewards[reward])
-            self.accumulated_rewards[reward] += max(rewards[reward], 0)
+            self.accumulated_scores[reward] += max(rewards[reward], 0)
         # TODO: positive incentives for following intention?
         for intention in intentions:
             src = intention.get_src_agent()
@@ -69,13 +72,20 @@ class VolleyballPongEnvWrapper(EnvWrapper):
                 rewards[src] -= self.penalty
             elif intention_val == "jump" and action[src][0].astype(int) != 2:
                 rewards[src] -= self.penalty
+        
+        for agent in rewards:
+            self.accumulated_rewards[agent] += rewards[agent]
         return rewards
+
+    def get_accumulated_scores(self, agent: str) -> float:
+        return self.accumulated_scores[agent]
 
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
 
     def reset(self, seed=None, options=None):
         res = super().reset(seed, options)
+        self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
         return res
 
@@ -167,7 +177,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
 
 
 # TODO: DDQN?
-def train(env: ParallelEnv, models, params: Namespace):
+def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_eval=50, eval_epsilon=0.05, save_model_time=10):
     if not os.path.exists("models"):
         os.makedirs("models")
 
@@ -245,14 +255,14 @@ def train(env: ParallelEnv, models, params: Namespace):
             update(agents, models, replay_buffer, params, criterion, optimizers, env)
         for agent in agents:
             logger.info(
-                f"Agent {agent} accumulated reward: {env.get_accumulated_rewards(agent)}"
+                f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}"
             )
         # save model
-        # TODO: every 10 games?
-        for agent, model in models.items():
-            torch.save(
-                model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
-            )
+        if (game_num + 1) % save_model_time == 0:
+            for agent, model in models.items():
+                torch.save(
+                    model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
+                )
 
         # update epsilon
 
@@ -260,7 +270,10 @@ def train(env: ParallelEnv, models, params: Namespace):
             epsilon = max(params.epsilon_min, epsilon - params.epsilon_decay)
         elif params.epsilon_decay_type == "mul":
             epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
-
+        
+        if (game_num + 1) % eval_time == 0:
+            # perform evaluations
+            evaluate(env, agents, models, game_nums=num_game_eval, maximum_frame=maximum_frame, logger=logger, epsilon=eval_epsilon)
 
 def main(config):
     # TODO: hyperparameter tuning
@@ -268,7 +281,8 @@ def main(config):
     intention_tuples = config.intentions_tuples
     env = create_env(params, intention_tuples)
     models = get_models(env, params)
-    train(env, models, params)
+    # Evaluate model every 10 games, save model every 10 games
+    train(env, models, params, eval_time=10, save_model_time=10)
 
 
 def parse_args():
