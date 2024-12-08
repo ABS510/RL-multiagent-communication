@@ -3,6 +3,7 @@ from argparse import Namespace
 import random
 import tqdm
 import os
+from datetime import datetime
 
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
@@ -182,11 +183,23 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
 
 
 # TODO: DDQN?
-def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_eval=50, eval_epsilon=0.05, save_model_time=10):
+def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_eval=50, eval_epsilon=0.05, save_model_time=10, log_dir=None):
     if not os.path.exists("models"):
         os.makedirs("models")
 
+    if log_dir is None:
+        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}" 
+    
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
     agents = env.agents
+    loss_csv = os.path.join(log_dir, 'train_loss.csv')
+    with open(loss_csv, 'w') as f:
+        col_names = ",".join(["Game"] + agents)
+        f.write(col_names)
+        f.write("\n")
+
 
     replay_buffer = {
         agent: ReplayBuffer(params.replay_buffer_capacity) for agent in agents
@@ -278,17 +291,29 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
                     running_loss_per_agent[agent] = (running_loss + loss_per_agent[agent]) / (i+1)
 
             progress_bar.set_postfix({
-                a: "{:.3e}".format(l) for a,l in running_loss_per_agent.items()
+                a: "{:.3e}".format(running_loss_per_agent[a]) 
+                    if a in running_loss_per_agent else "NaN" 
+                        for a in agents
             }, update=True)
 
         del progress_bar
             
-            
-
         for agent in agents:
             logger.info(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}"
             )
+
+            if agent in running_loss_per_agent:
+                logger.info(
+                    f"Agent {agent} average loss: {running_loss_per_agent[agent]}"
+                )
+
+        with open(loss_csv, 'a') as f:
+            loss_vals = [running_loss_per_agent.get(agent, "NaN") for agent in agents]
+            loss_vals = [str(game_num)] + ["{:.5f}".format(l) if isinstance(l, float) else l for l in loss_vals]
+            f.write(",".join(loss_vals))
+            f.write("\n")
+            
         # save model
         if (game_num + 1) % save_model_time == 0:
             for agent, model in models.items():
@@ -313,8 +338,10 @@ def main(config):
     intention_tuples = config.intentions_tuples
     env = create_env(params, intention_tuples)
     models = get_models(env, params)
+
+    log_dir = config.log_dir
     # Evaluate model every 10 games, save model every 10 games
-    train(env, models, params, eval_time=10, save_model_time=10)
+    train(env, models, params, eval_time=10, save_model_time=10, log_dir=log_dir)
 
 
 def parse_args():
