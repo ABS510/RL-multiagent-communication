@@ -37,7 +37,6 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
 
-
     def add_reward(
         self,
         action: Dict[str, Tuple[np.ndarray]],
@@ -67,7 +66,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
                 rewards[src] -= self.penalty
             elif intention_val == "jump" and action[src][0].astype(int) != 2:
                 rewards[src] -= self.penalty
-        
+
         for agent in rewards:
             self.accumulated_rewards[agent] += rewards[agent]
         return rewards
@@ -128,7 +127,9 @@ def create_env(params, intention_tuples):
 
 def get_models(env, params):
     # create models
-    models = make_models(env, device, hidden_sizes=params.hidden_sizes)
+    models = make_models(
+        env, device, hidden_sizes=params.hidden_sizes, stack_size=params.stack_size
+    )
     for agent, model in models.items():
         param_num = sum(p.numel() for p in model.parameters())
         logger.info(f"Agent {agent} model: {model}")
@@ -139,7 +140,7 @@ def get_models(env, params):
 
 def update(agents, models, replay_buffer, params, criterion, optimizers, env):
     loss_per_agent = {}
-    
+
     for agent in agents:
         models[agent].train()
         if len(replay_buffer[agent]) < params.batch_size:
@@ -177,23 +178,31 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
 
 
 # TODO: DDQN?
-def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_eval=50, eval_epsilon=0.05, save_model_time=10, log_dir=None):
+def train(
+    env: ParallelEnv,
+    models,
+    params: Namespace,
+    eval_time=10,
+    num_game_eval=50,
+    eval_epsilon=0.05,
+    save_model_time=10,
+    log_dir=None,
+):
     if not os.path.exists("models"):
         os.makedirs("models")
 
     if log_dir is None:
-        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}" 
-    
+        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}"
+
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    
+
     agents = env.agents
-    loss_csv = os.path.join(log_dir, 'train_loss.csv')
-    with open(loss_csv, 'w') as f:
+    loss_csv = os.path.join(log_dir, "train_loss.csv")
+    with open(loss_csv, "w") as f:
         col_names = ",".join(["Game"] + agents)
         f.write(col_names)
         f.write("\n")
-
 
     replay_buffer = {
         agent: ReplayBuffer(params.replay_buffer_capacity) for agent in agents
@@ -214,7 +223,7 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
 
     running_loss_per_agent = {}
     for game_num in range(game_nums):
-        logger.info(f"Game {game_num}")
+        logger.info(f"Game {game_num}, epsilon: {epsilon}")
         observations, infos = env.reset()
         progress_bar = tqdm.tqdm(total=maximum_frame, position=0, leave=True)
 
@@ -226,7 +235,7 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
                     action = env.action_space(agent).sample()
                 else:
                     with torch.no_grad():
-                        # tuple of 
+                        # tuple of
                         # 0: scene np.array of shape (5, 2, stack_size)
                         # 1, 2: intentions np.array of shape (3 * stack_size, )
                         observation = observations[agent]
@@ -272,7 +281,9 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
 
             observations = next_observations
 
-            loss_per_agent = update(agents, models, replay_buffer, params, criterion, optimizers, env)
+            loss_per_agent = update(
+                agents, models, replay_buffer, params, criterion, optimizers, env
+            )
 
             for agent in agents:
                 if agent not in loss_per_agent:
@@ -282,19 +293,27 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
                     running_loss_per_agent[agent] = loss_per_agent[agent]
                 else:
                     running_loss = running_loss_per_agent[agent] * i
-                    running_loss_per_agent[agent] = (running_loss + loss_per_agent[agent]) / (i+1)
+                    running_loss_per_agent[agent] = (
+                        running_loss + loss_per_agent[agent]
+                    ) / (i + 1)
 
-            progress_bar.set_postfix({
-                a: "{:.3e}".format(running_loss_per_agent[a]) 
-                    if a in running_loss_per_agent else "NaN" 
-                        for a in agents
-            }, update=True)
+            progress_bar.set_postfix(
+                {
+                    a: (
+                        "{:.3e}".format(running_loss_per_agent[a])
+                        if a in running_loss_per_agent
+                        else "NaN"
+                    )
+                    for a in agents
+                },
+                update=True,
+            )
 
         del progress_bar
-            
+
         for agent in agents:
             logger.info(
-                f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}"
+                f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
             )
 
             if agent in running_loss_per_agent:
@@ -302,12 +321,23 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
                     f"Agent {agent} average loss: {running_loss_per_agent[agent]}"
                 )
 
-        with open(loss_csv, 'a') as f:
+            # detect vanishing gradients
+            param_num = sum(p.numel() for p in models[agent].parameters())
+            avg_weight = (
+                sum(p.abs().mean() for p in models[agent].parameters()) / param_num
+            )
+            for param in models[agent].parameters():
+                if torch.isnan(param).any():
+                    logger.error(f"Agent {agent} has NaN gradients")
+                    break
+            logger.info(f"Agent {agent} average weight: {avg_weight}")
+
+        with open(loss_csv, "a") as f:
             loss_vals = [running_loss_per_agent.get(agent, "NaN") for agent in agents]
             loss_vals = [str(game_num)] + [format_loss_str(l) for l in loss_vals]
             f.write(",".join(loss_vals))
             f.write("\n")
-            
+
         # save model
         if (game_num + 1) % save_model_time == 0:
             for agent, model in models.items():
@@ -321,10 +351,19 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
             epsilon = max(params.epsilon_min, epsilon - params.epsilon_decay)
         elif params.epsilon_decay_type == "mul":
             epsilon = max(params.epsilon_min, epsilon * params.epsilon_decay)
-        
+
         if (game_num + 1) % eval_time == 0:
             # perform evaluations
-            evaluate(env, agents, models, game_nums=num_game_eval, maximum_frame=maximum_frame, logger=logger, epsilon=eval_epsilon)
+            evaluate(
+                env,
+                agents,
+                models,
+                game_nums=num_game_eval,
+                maximum_frame=maximum_frame,
+                logger=logger,
+                epsilon=eval_epsilon,
+            )
+
 
 def main(config):
     # TODO: hyperparameter tuning
@@ -335,7 +374,15 @@ def main(config):
 
     log_dir = config.log_dir
     # Evaluate model every 10 games, save model every 10 games
-    train(env, models, params, eval_time=10, save_model_time=10, log_dir=log_dir)
+    train(
+        env,
+        models,
+        params,
+        eval_time=10,
+        save_model_time=10,
+        log_dir=log_dir,
+        num_game_eval=1,
+    )
 
 
 def parse_args():

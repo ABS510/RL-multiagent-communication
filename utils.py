@@ -27,6 +27,7 @@ def get_torch_device() -> str:
     return "cpu"
 
 
+
 def idx_to_action(idx: int, action_space) -> np.ndarray:
     action = []
     for space in action_space.spaces:
@@ -39,7 +40,9 @@ def action_to_idx(action: np.ndarray, action_space) -> int:
     idx = 0
     for i, space in enumerate(action_space.spaces):
         idx += action[i] * np.prod([space.n for space in action_space.spaces[:i]])
-    return int(idx)
+    idx = int(idx)
+    return idx
+
 
 def format_loss_str(l) -> str:
     if isinstance(l, str):
@@ -47,7 +50,5 @@ def format_loss_str(l) -> str:
 
     if isinstance(l, float) or isinstance(l, int) or isinstance(l, bool):
         return "{:.5f}".format(float(l))
-    
+
     return str(l)
-    
-    
