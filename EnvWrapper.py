@@ -111,7 +111,13 @@ class Intention:
             gym.spaces.Box: A gym.spaces.Box space with a shape corresponding to the number of candidates.
         """
         return gym.spaces.Box(
-            low=0, high=1, shape=(len(self._candidates),), dtype=np.uint8
+            low=0,
+            high=1,
+            shape=(
+                1,
+                len(self._candidates),
+            ),
+            dtype=np.uint8,
         )
 
     def reset(self) -> None:
@@ -129,7 +135,7 @@ class Intention:
         """
         obs = np.zeros(len(self._candidates))
         obs[self._val] = 1
-        return obs
+        return obs.reshape(1, -1)
 
     def step(self, action: np.ndarray):
         """

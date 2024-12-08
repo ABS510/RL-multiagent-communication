@@ -50,39 +50,56 @@ class NeuralNet(nn.Module):
     ):
         super(NeuralNet, self).__init__()
 
-        hidden_sizes = [input_space] + hidden_sizes
+        print(input_space)
+        embedding_size = 64
 
-        lin_layers = []
-        for i in range(len(hidden_sizes) - 1):
-            lin_layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+        self.input_embedding = nn.Linear(input_space, embedding_size)
 
-        self.lin_layers = nn.ModuleList(lin_layers)
+        self.transformer = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=embedding_size, nhead=4, dim_feedforward=256, batch_first=True
+            ),
+            num_layers=2,
+        )
 
-        self.output_layer = nn.Linear(hidden_sizes[-1], output_size)
+        self.output_layer = nn.Linear(embedding_size, output_size)
 
-        self.normalize_output = nn.Softmax(dim=-1)
-        # self.comm_act_fn = comm_act_fn
+        self.EOS = nn.Parameter(torch.randn(1, embedding_size))
 
-        # self.output_act = op_act_fn
+        # hidden_sizes = [input_space] + hidden_sizes
+
+        # lin_layers = []
+        # for i in range(len(hidden_sizes) - 1):
+        #     lin_layers.append(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]))
+
+        # self.lin_layers = nn.ModuleList(lin_layers)
+
+        # self.output_layer = nn.Linear(hidden_sizes[-1], output_size)
 
     def forward(self, x):
         if not isinstance(x, torch.Tensor):
             x = self._stack_tuple(x)
-        for layer in self.lin_layers:
-            x = F.relu(layer(x))
+        # swap the last two dimensions; x could be (batch_size, seq_len, input_size) or (seq_len, input_size)
+        x = x.permute(0, 2, 1) if len(x.shape) == 3 else x.unsqueeze(0).permute(0, 2, 1)
+        x = self.input_embedding(x)
+        # add eos
+        x = torch.cat([x, self.EOS.expand(x.shape[0], 1, -1)], dim=1)
+        x = self.transformer(x)
+        x = x[:, -1, :]
         x = self.output_layer(x)
         return x
 
+        # if not isinstance(x, torch.Tensor):
+        #     x = self._stack_tuple(x)
+        # for layer in self.lin_layers:
+        #     x = F.relu(layer(x))
         # x = self.output_layer(x)
-
-        # x[:, 0 : self.num_actions] = self.output_act(x[:, 0 : self.num_actions])
-        # x[:, self.num_actions :] = self.comm_act_fn(x[:, self.num_actions :])
         # return x
 
     def _stack_tuple(self, x):
         assert isinstance(x, tuple)
         if isinstance(x[0], torch.Tensor):
-            return torch.cat([item.view(-1) for item in x], dim=-1)
+            return torch.cat([item.reshape(-1, item.shape[-1]) for item in x], dim=0)
         else:
             x = [self._stack_tuple(i) for i in x]
 

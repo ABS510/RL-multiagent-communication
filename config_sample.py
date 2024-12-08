@@ -1,19 +1,34 @@
 from argparse import Namespace
 
+# params = Namespace(
+#     replay_buffer_capacity=30000,
+#     batch_size=64,
+#     lr=0.0001,
+#     gamma=0.99,
+#     max_frame=60 * 120,
+#     game_nums=2000,
+#     epsilon_init=1,
+#     epsilon_decay=0.9 / 50,
+#     epsilon_decay_type="lin",
+#     epsilon_min=0.1,
+#     penalty=0.1,
+#     stack_size=60,
+#     hidden_sizes=[1024, 512, 256, 64],
+# )
 params = Namespace(
     replay_buffer_capacity=30000,
     batch_size=64,
     lr=0.0001,
     gamma=0.99,
     max_frame=60 * 120,
-    game_nums=2000,
+    game_nums=200,
     epsilon_init=1,
     epsilon_decay=0.9 / 50,
     epsilon_decay_type="lin",
     epsilon_min=0.1,
-    penalty=0.1,
-    stack_size=60,
-    hidden_sizes=[1024, 512, 256, 64],
+    penalty=0.05,
+    stack_size=5,
+    hidden_sizes=[1024, 256],
 )
 
 # intentions are tuples of form:
