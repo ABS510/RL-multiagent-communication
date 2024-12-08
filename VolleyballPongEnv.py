@@ -18,13 +18,7 @@ from AECWrapper import AECWrapper
 from Logging import setup_logger
 from MakeModels import make_models
 from Evaluate import evaluate
-from utils import (
-    np_to_torch,
-    torch_to_np,
-    get_torch_device,
-    idx_to_action,
-    action_to_idx,
-)
+from utils import *
 from ExperienceReplay import ReplayBuffer
 
 import argparse
@@ -310,7 +304,7 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
 
         with open(loss_csv, 'a') as f:
             loss_vals = [running_loss_per_agent.get(agent, "NaN") for agent in agents]
-            loss_vals = [str(game_num)] + ["{:.5f}".format(l) if isinstance(l, float) else l for l in loss_vals]
+            loss_vals = [str(game_num)] + [format_loss_str(l) for l in loss_vals]
             f.write(",".join(loss_vals))
             f.write("\n")
             
