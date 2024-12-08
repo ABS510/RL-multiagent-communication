@@ -143,6 +143,8 @@ def get_models(env, params):
 
 
 def update(agents, models, replay_buffer, params, criterion, optimizers, env):
+    loss_per_agent = {}
+    
     for agent in agents:
         models[agent].train()
         if len(replay_buffer[agent]) < params.batch_size:
@@ -170,10 +172,13 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
         ).to(device)
         q_values = q_values.gather(1, action_idx.unsqueeze(1)).squeeze(1)
         loss = criterion(q_values, targets)
+        loss_per_agent[agent] = loss.clone().detach().cpu().numpy()
+
         models[agent].zero_grad()
         loss.backward()
         optimizers[agent].step()
     # TODO (Janny): Report the loss & values (tqdm?)
+    return loss_per_agent
 
 
 # TODO: DDQN?
@@ -199,16 +204,24 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
     # the training loop here
     game_nums = params.game_nums
     maximum_frame = params.max_frame
+
+    running_loss_per_agent = {}
     for game_num in range(game_nums):
         logger.info(f"Game {game_num}")
         observations, infos = env.reset()
-        for i in tqdm.tqdm(range(maximum_frame)):
+        progress_bar = tqdm.tqdm(total=maximum_frame, position=0, leave=True)
+
+        for i in range(maximum_frame):
+            progress_bar.update(1)
             actions = {}
             for agent in agents:
                 if random.random() < epsilon:
                     action = env.action_space(agent).sample()
                 else:
                     with torch.no_grad():
+                        # tuple of 
+                        # 0: scene np.array of shape (5, 2, stack_size)
+                        # 1, 2: intentions np.array of shape (3 * stack_size, )
                         observation = observations[agent]
                         observation = np_to_torch(observation, device=device)
                         q_values = models[agent](observation)
@@ -252,7 +265,26 @@ def train(env: ParallelEnv, models, params: Namespace, eval_time=10, num_game_ev
 
             observations = next_observations
 
-            update(agents, models, replay_buffer, params, criterion, optimizers, env)
+            loss_per_agent = update(agents, models, replay_buffer, params, criterion, optimizers, env)
+
+            for agent in agents:
+                if agent not in loss_per_agent:
+                    continue
+
+                if agent not in running_loss_per_agent:
+                    running_loss_per_agent[agent] = loss_per_agent[agent]
+                else:
+                    running_loss = running_loss_per_agent[agent] * i
+                    running_loss_per_agent[agent] = (running_loss + loss_per_agent[agent]) / (i+1)
+
+            progress_bar.set_postfix({
+                a: "{:.3e}".format(l) for a,l in running_loss_per_agent.items()
+            }, update=True)
+
+        del progress_bar
+            
+            
+
         for agent in agents:
             logger.info(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}"
