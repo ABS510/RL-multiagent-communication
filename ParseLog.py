@@ -171,60 +171,66 @@ def read_log(log_fname, out_dir):
                 eval_win_plot.figure.savefig(os.path.join(out_dir, f"eval_win{suffix}.png"))
                 eval_win_plot.figure.clear()
 
-        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-        for i, behavior in enumerate(behaviors):
-            eval_behavior_df = eval_df[[f"{a}_{behavior}" for a in agents]]
-            eval_behavior_df = eval_behavior_df.rename(columns={
-                f"{a}_{behavior}" : a
-                for a in agents
-            })
-            sns.lineplot(data=eval_behavior_df, ax=axes[i])
-            axes[i].set_title(behavior)
-        fig.savefig(os.path.join(out_dir, "eval_intentions.png"))
-        fig.clear()
+        try:
+            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+            for i, behavior in enumerate(behaviors):
+                eval_behavior_df = eval_df[[f"{a}_{behavior}" for a in agents]]
+                eval_behavior_df = eval_behavior_df.rename(columns={
+                    f"{a}_{behavior}" : a
+                    for a in agents
+                })
+                sns.lineplot(data=eval_behavior_df, ax=axes[i])
+                axes[i].set_title(behavior)
+            fig.savefig(os.path.join(out_dir, "eval_intentions.png"))
+            fig.clear()
+        except:
+            print("No intention information found!")
+            
+    try:
+        eval_summary_df = pd.DataFrame(eval_summary_list).dropna()
+        if not eval_summary_df.empty:
+            eval_summary_df.to_csv(os.path.join(out_dir, 'eval_summary_log.csv'), index=False)
+            x = np.arange(len(eval_summary_df))
 
-    eval_summary_df = pd.DataFrame(eval_summary_list).dropna()
-    if not eval_summary_df.empty:
-        eval_summary_df.to_csv(os.path.join(out_dir, 'eval_summary_log.csv'), index=False)
-        x = np.arange(len(eval_summary_df))
+            # # hack
+            # if len(eval_summary_df) < 2:
+            #     eval_summary_df = pd.concat([eval_summary_df]*5,ignore_index=True)
 
-        # # hack
-        # if len(eval_summary_df) < 2:
-        #     eval_summary_df = pd.concat([eval_summary_df]*5,ignore_index=True)
-
-        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-        for i, c in enumerate(['reward', 'score']):
-            for a in agents:
-                # sns.lineplot(eval_summary_df[f"{a}_{c}_mean"], ax=axes[i])
-                y = eval_summary_df[f"{a}_{c}_mean"].to_numpy()
-                yerr = eval_summary_df[f"{a}_{c}_std"].to_numpy()
-                _, _, bars = axes[i].errorbar(x, y, yerr=yerr, label=a)
-                for bar in bars:
-                    bar.set_alpha(0.3) 
-            axes[i].set_title(c)
-            axes[i].legend()
-        fig.savefig(os.path.join(out_dir, "eval_summary_scores.png"))
-        fig.clear()
-        
-        fig, axes = plt.subplots(1, 5, figsize=(25, 5))
-        for i, a in enumerate(agents):
-            means = {
-                c: eval_summary_df[f"{a}_{c}_mean"].to_numpy()
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+            for i, c in enumerate(['reward', 'score']):
+                for a in agents:
+                    # sns.lineplot(eval_summary_df[f"{a}_{c}_mean"], ax=axes[i])
+                    y = eval_summary_df[f"{a}_{c}_mean"].to_numpy()
+                    yerr = eval_summary_df[f"{a}_{c}_std"].to_numpy()
+                    _, _, bars = axes[i].errorbar(x, y, yerr=yerr, label=a)
+                    for bar in bars:
+                        bar.set_alpha(0.3) 
+                axes[i].set_title(c)
+                axes[i].legend()
+            fig.savefig(os.path.join(out_dir, "eval_summary_scores.png"))
+            fig.clear()
+            
+            fig, axes = plt.subplots(1, 5, figsize=(25, 5))
+            for i, a in enumerate(agents):
+                means = {
+                    c: eval_summary_df[f"{a}_{c}_mean"].to_numpy()
+                    for c in summary_cols
+                }
+                axes[i].stackplot(x, means.values(), labels=means.keys())
+                axes[i].set_title(f"{a} Behavior")
+                axes[i].legend()
+            
+            overall_means = {
+                c: eval_summary_df[[f"{a}_{c}_mean" for a in agents]].mean(axis=1).to_numpy()
                 for c in summary_cols
             }
-            axes[i].stackplot(x, means.values(), labels=means.keys())
-            axes[i].set_title(f"{a} Behavior")
-            axes[i].legend()
-        
-        overall_means = {
-            c: eval_summary_df[[f"{a}_{c}_mean" for a in agents]].mean(axis=1).to_numpy()
-            for c in summary_cols
-        }
-        axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
-        axes[-1].set_title(f"Average Behavior")
-        axes[-1].legend()
+            axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
+            axes[-1].set_title(f"Average Behavior")
+            axes[-1].legend()
 
-        fig.savefig(os.path.join(out_dir, "eval_summary_intentions.png"))
+            fig.savefig(os.path.join(out_dir, "eval_summary_intentions.png"))
+    except:
+        print("No mean/std lines found!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Loading a log file")
