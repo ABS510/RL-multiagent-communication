@@ -4,6 +4,8 @@ import re
 import argparse
 
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 agents = ['first_0', 'second_0', 'third_0', 'fourth_0']
 
@@ -50,8 +52,8 @@ def read_log(log_fname, out_dir):
             if eval_start_match:
                 eval_game = int(eval_start_match.group(1))
                 eval_df_list.append({
-                    'Training Game': training_game,
-                    'Evaluation Game': eval_game
+                    'Training_Game': training_game,
+                    'Evaluation_Game': eval_game
                 })
                 continue
             
@@ -76,9 +78,21 @@ def read_log(log_fname, out_dir):
 
     train_df = pd.DataFrame(train_df_list).dropna()
     train_df.to_csv(os.path.join(out_dir, 'train_log.csv'), index_label='Game')
+
+    for suffix in ['_reward', '_loss']:
+        train_plot = sns.lineplot(data=train_df[[a+suffix for a in agents]]) 
+        if suffix == '_loss':
+            plt.yscale('log')
+        train_plot.figure.savefig(os.path.join(out_dir, f"train{suffix}.png"))
+        train_plot.figure.clear()
+
     eval_df = pd.DataFrame(eval_df_list).dropna()
     eval_df.to_csv(os.path.join(out_dir, 'eval_log.csv'), index=False)
 
+    for suffix in ['_reward', '_score']:
+        eval_plot = sns.lineplot(data=eval_df[[a+suffix for a in agents]]) 
+        eval_plot.figure.savefig(os.path.join(out_dir, f"eval{suffix}.png"))
+        eval_plot.figure.clear()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Loading a log file")
