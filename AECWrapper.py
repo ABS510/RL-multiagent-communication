@@ -30,14 +30,28 @@ class AECWrapper(OrderEnforcingWrapper):
         mask[130:, 80 - 4 : 80 + 4] = 0
         mask[180:, :] = 0
         self.ball_mask = mask
+        self.accumulated_scores = {}
+
+    def reset(self, seed=None, options=None):
+        res = super().reset(seed, options)
+        self.accumulated_scores = {agent: 0 for agent in self.agents}
+        return res
 
     def observation_space(self, agent):
-        high = np.zeros(10)
+        high = np.zeros(12)
         high[::2] = 210
         high[1::2] = 160
+        high[-2] = 21
+        high[-1] = 21
         return gym.spaces.Box(
-            low=np.zeros((5, 2)), high=high.reshape((5, 2)), dtype=np.int64
+            low=np.zeros((6, 2)), high=high.reshape((6, 2)), dtype=np.int64
         )
+
+    def step(self, action):
+        res = super().step(action)
+        for agent in self.agents:
+            self.accumulated_scores[agent] += max(0, int(self.env.env.env.rewards[agent]))
+        return res
 
     def observe(self, agent):
         screen = super().observe(agent)
@@ -45,6 +59,19 @@ class AECWrapper(OrderEnforcingWrapper):
         if self.right_team_color is None or self.left_team_color is None:
             self.get_team_colors(screen)
         res = self.get_detections(screen)
+        # res is 5 * 2, append [self.accumulated_scores[self.agents[0]], self.accumulated_scores[self.agents[1]]]
+        # print all attributes of self
+        res = np.concatenate(
+            (
+                res,
+                [
+                    [
+                        self.accumulated_scores[agent],
+                        self.accumulated_scores[agent],
+                    ]
+                ],
+            )
+        )
         return res
 
     def find_rectangle(self, img, paddle, detections):
