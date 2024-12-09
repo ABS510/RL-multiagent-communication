@@ -236,9 +236,9 @@ def read_log(log_fname, out_dir):
             # total_actions_cnt_overall = 1
             total_stack_items = [
                 v / total_actions_cnt_overall 
-                for v in means.values()
+                for v in overall_means.values()
             ]
-            axes[-1].stackplot(x, *total_stack_items, labels=means.keys())
+            axes[-1].stackplot(x, *total_stack_items, labels=overall_means.keys())
             # axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
             axes[-1].set_title(f"Average Behavior")
             axes[-1].legend()
