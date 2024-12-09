@@ -18,7 +18,7 @@ from argparse import Namespace
 params = Namespace(
     replay_buffer_capacity=100000,
     batch_size=64,
-    lr=1e-5,
+    lr=8e-6,
     gamma=0.95,
     max_frame=60 * 180,
     game_nums=200,

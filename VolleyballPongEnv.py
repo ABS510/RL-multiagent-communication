@@ -258,25 +258,25 @@ def train(
 
     running_loss_per_agent = {}
 
-    history_models = {agent: deque(maxlen=10) for agent in agents}
+    # history_models = {agent: deque(maxlen=10) for agent in agents}
 
-    for agent in agents:
-        models[agent].eval()
-        history_models[agent].append(copy.deepcopy(models[agent]))
+    # for agent in agents:
+    #     models[agent].eval()
+    #     history_models[agent].append(copy.deepcopy(models[agent]))
 
     for game_num in range(game_nums):
         logger.info(f"Game {game_num}, epsilon: {epsilon}")
-        if game_num == 0:
-            trained_agent = agents
-        else:
-            trained_agent = [agents[game_num % len(agents)]]
-        trained_models = {}
-        for agent in trained_agent:
-            trained_models[agent] = models[agent]
-        for agent in agents:
-            if agent not in trained_agent:
-                # randomly select a model from history
-                trained_models[agent] = random.choice(history_models[agent])
+        # if game_num == 0:
+        #     trained_agent = agents
+        # else:
+        #     trained_agent = [agents[game_num % len(agents)]]
+        # trained_models = {}
+        # for agent in trained_agent:
+        #     trained_models[agent] = models[agent]
+        # for agent in agents:
+        #     if agent not in trained_agent:
+        #         # randomly select a model from history
+        #         trained_models[agent] = random.choice(history_models[agent])
         observations, infos = env.reset()
         progress_bar = tqdm.tqdm(total=maximum_frame, position=0, leave=True)
         q_vals = {agent: [] for agent in agents}
@@ -294,7 +294,8 @@ def train(
                         # 1, 2: intentions np.array of shape (3 * stack_size, )
                         observation = observations[agent]
                         observation = np_to_torch(observation, device=device)
-                        q_values = trained_models[agent](observation)
+                        # q_values = trained_models[agent](observation)
+                        q_values = models[agent](observation)
                         max_idx = torch.argmax(q_values).item()
                         q_vals[agent].append(q_values[0, max_idx].item())
                         action = idx_to_action(max_idx, env.action_space(agent))
@@ -312,7 +313,8 @@ def train(
                         termination = True
                         break
             if termination:
-                for agent in trained_agent:
+                # for agent in trained_agent:
+                for agent in agents:
                     observation = []
                     for item in env.observation_space(agent).spaces:
                         observation.append(np.zeros(item.shape))
@@ -327,7 +329,8 @@ def train(
                     )
                 break
 
-            for agent in trained_agent:
+            # for agent in trained_agent:
+            for agent in agents:
                 replay_buffer[agent].push(
                     actions[agent],
                     observations[agent],
@@ -379,7 +382,7 @@ def train(
 
         del progress_bar
 
-        logger.info(f"Trained agents: {trained_agent}")
+        # logger.info(f"Trained agents: {trained_agent}")
         for agent in agents:
             logger.info(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
@@ -421,8 +424,8 @@ def train(
                 )
 
         # save history models
-        for agent in agents:
-            history_models[agent].append(copy.deepcopy(models[agent]))
+        # for agent in agents:
+        #     history_models[agent].append(copy.deepcopy(models[agent]))
 
         # update epsilon
 
