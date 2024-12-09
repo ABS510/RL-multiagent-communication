@@ -29,6 +29,8 @@ params = Namespace(
     penalty=0.05,
     stack_size=5,
     hidden_sizes=[1024, 256],
+    evaluation_mode=False,
+    model_path=None,  # or dict of model path if evaluation_mode=True
 )
 
 # intentions are tuples of form:

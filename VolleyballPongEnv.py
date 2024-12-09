@@ -25,7 +25,7 @@ import argparse
 import importlib.util
 import sys
 
-logger = setup_logger("VolleyballPongEnv", "test1.log")
+logger = setup_logger("VolleyballPongEnv", "test.log")
 device = get_torch_device()
 
 
