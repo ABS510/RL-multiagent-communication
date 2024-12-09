@@ -167,3 +167,5 @@ cython_debug/
 models/
         
 tuning/
+*.csv
+*.png

@@ -111,7 +111,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 def create_env(params, intention_tuples):
     # create the env
     render_mode = None
-    if params.evaluation_mode:
+    if params.evaluation_mode and params.render_game:
         pygame.init()
         pygame.display.set_mode((1,1))
         render_mode = "human"
@@ -434,8 +434,8 @@ def main(config):
             env,
             env.agents,
             models,
-            game_nums=50,
-            maximum_frame=60 * 120,
+            game_nums=5,
+            maximum_frame=500,
             logger=logger,
             epsilon=0.05,
         )
