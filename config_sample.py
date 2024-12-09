@@ -16,17 +16,17 @@ from argparse import Namespace
 #     hidden_sizes=[1024, 512, 256, 64],
 # )
 params = Namespace(
-    replay_buffer_capacity=30000,
+    replay_buffer_capacity=100000,
     batch_size=64,
-    lr=1e-5,
-    gamma=0.99,
-    max_frame=60 * 120,
+    lr=5e-6,
+    gamma=0.9,
+    max_frame=60 * 180,
     game_nums=200,
     epsilon_init=1,
-    epsilon_decay=0.9 / 50,
+    epsilon_decay=0.9 / 30,
     epsilon_decay_type="lin",
     epsilon_min=0.1,
-    penalty=0.05,
+    penalty=0.2,
     stack_size=5,
     hidden_sizes=[1024, 256],
     render_game=False,
@@ -39,7 +39,7 @@ params = Namespace(
 # Example: (0, (0,2)) will be an intention from agent0 to agent0 and agent2
 intentions_tuples = [(0, (0, 2)), (2, (0, 2)), (1, (1, 3)), (3, (1, 3))]
 
-log_dir = "test_config_sample"
+log_dir = "stable_try"
 
 
 # Example of config file for evaluation
