@@ -188,14 +188,17 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
             infos,
             next_observations,
         ) = replay_buffer[agent].sample(params.batch_size)
-        observations = np_to_torch(observations, device=device)
-        next_observations = np_to_torch(next_observations, device=device)
-        rewards = torch.tensor(list(rewards), device=device, dtype=torch.float32)
         done = (terminations == True) | (truncations == True)
-        with torch.no_grad():
-            next_q_values = models[agent](next_observations)
-            max_next_q_values = torch.max(next_q_values, dim=1).values
-            targets = rewards + params.gamma * max_next_q_values * (1 - done)
+        rewards = torch.tensor(list(rewards), device=device, dtype=torch.float32)
+        observations = np_to_torch(observations, device=device)
+        if done:
+            targets = rewards
+        else:
+            next_observations = np_to_torch(next_observations, device=device)
+            with torch.no_grad():
+                next_q_values = models[agent](next_observations)
+                max_next_q_values = torch.max(next_q_values, dim=1).values
+                targets = rewards + params.gamma * max_next_q_values * (1 - done)
         q_values = models[agent](observations)
         action_idx = torch.tensor(
             [action_to_idx(a, env.action_space(agent)) for a in actions]
@@ -278,6 +281,27 @@ def train(
                 actions
             )
 
+            termination = False
+            if terminations == {} or truncations == {}:  # empty dict
+                termination = True
+            else:
+                for agent in agents:
+                    if truncations[agent] or terminations[agent]:
+                        termination = True
+                        break
+            if termination:
+                for agent in agents:
+                    replay_buffer[agent].push(
+                        actions[agent],
+                        observations[agent],
+                        rewards[agent],
+                        terminations[agent],
+                        truncations[agent],
+                        infos[agent],
+                        None,
+                    )
+                break
+
             for agent in agents:
                 replay_buffer[agent].push(
                     actions[agent],
@@ -288,17 +312,6 @@ def train(
                     infos[agent],
                     next_observations[agent],
                 )
-
-            termination = False
-            if terminations == {} or truncations == {}:  # empty dict
-                termination = True
-            else:
-                for agent in agents:
-                    if truncations[agent] or terminations[agent]:
-                        termination = True
-                        break
-            if termination:
-                break
 
             # logger.info(actions)
             # logger.info("-" * 20)
