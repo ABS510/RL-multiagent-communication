@@ -25,13 +25,15 @@ from utils import (
 )
 
 device = get_torch_device()
+
+
 def evaluate(env, agents, models, game_nums, maximum_frame, logger, epsilon=0.05):
-    print("HIHIHI")    
-    print(agents)
-    
-    all_scores = {agent : [] for agent in agents}
-    all_rewards = {agent : [] for agent in agents}
-    
+    for agent in agents:
+        models[agent].eval()
+
+    all_scores = {agent: [] for agent in agents}
+    all_rewards = {agent: [] for agent in agents}
+
     for game_num in range(game_nums):
         logger.info(f"Evaluation Game {game_num}")
         observations, infos = env.reset()
@@ -68,28 +70,15 @@ def evaluate(env, agents, models, game_nums, maximum_frame, logger, epsilon=0.05
         for agent in agents:
             score = env.get_accumulated_scores(agent)
             reward = env.get_accumulated_rewards(agent)
-            logger.info(
-                f"Evaluation: Agent {agent} accumulated score: {score}"
-            )
-            logger.info(
-                f"Evaluation: Agent {agent} accumulated reward: {reward}"
-            )
+            logger.info(f"Evaluation: Agent {agent} accumulated score: {score}")
+            logger.info(f"Evaluation: Agent {agent} accumulated reward: {reward}")
             all_scores[agent].append(score)
             all_rewards[agent].append(reward)
-    
+
     for agent in agents:
         scores = np.array(all_scores[agent])
         rewards = np.array(all_rewards[agent])
-        logger.info(
-            f"Evaluation: Agent {agent} mean score: {np.mean(scores)}"
-        )
-        logger.info(
-            f"Evaluation: Agent {agent} score std: {np.std(scores)}"
-        )
-        logger.info(
-            f"Evaluation: Agent {agent} mean reward: {np.mean(rewards)}"
-        )
-        logger.info(
-            f"Evaluation: Agent {agent} reward std: {np.std(rewards)}"
-        )
-    
+        logger.info(f"Evaluation: Agent {agent} mean score: {np.mean(scores)}")
+        logger.info(f"Evaluation: Agent {agent} score std: {np.std(scores)}")
+        logger.info(f"Evaluation: Agent {agent} mean reward: {np.mean(rewards)}")
+        logger.info(f"Evaluation: Agent {agent} reward std: {np.std(rewards)}")
