@@ -8,6 +8,7 @@ from datetime import datetime
 from pettingzoo.atari import volleyball_pong_v3
 from pettingzoo.utils.env import ParallelEnv
 from pettingzoo.utils.conversions import aec_to_parallel
+import pygame
 import numpy as np
 import torch
 import torch.nn as nn
@@ -109,7 +110,15 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
 def create_env(params, intention_tuples):
     # create the env
-    env = volleyball_pong_v3.env(max_cycles=params.max_frame)
+    render_mode = None
+    if params.evaluation_mode:
+        pygame.init()
+        pygame.display.set_mode((1,1))
+        render_mode = "human"
+
+    env = volleyball_pong_v3.env(
+        max_cycles=params.max_frame, 
+        render_mode=render_mode)
 
     env = AECWrapper(env)
 
