@@ -128,7 +128,11 @@ def create_env(params, intention_tuples):
 def get_models(env, params):
     # create models
     models = make_models(
-        env, device, hidden_sizes=params.hidden_sizes, stack_size=params.stack_size
+        env,
+        device,
+        hidden_sizes=params.hidden_sizes,
+        stack_size=params.stack_size,
+        model_path=params.model_path,
     )
     for agent, model in models.items():
         param_num = sum(p.numel() for p in model.parameters())
@@ -353,7 +357,7 @@ def train(
                 agents,
                 models,
                 game_nums=num_game_eval,
-                maximum_frame=maximum_frame,
+                maximum_frame=params.max_frame,
                 logger=logger,
                 epsilon=eval_epsilon,
             )
@@ -381,16 +385,28 @@ def main(config):
     models = get_models(env, params)
 
     log_dir = config.log_dir
-    # Evaluate model every 10 games, save model every 10 games
-    train(
-        env,
-        models,
-        params,
-        eval_time=10,
-        save_model_time=10,
-        log_dir=log_dir,
-        num_game_eval=5,
-    )
+
+    if params.evaluation_mode == False:
+        # Evaluate model every 10 games, save model every 10 games
+        train(
+            env,
+            models,
+            params,
+            eval_time=10,
+            save_model_time=10,
+            log_dir=log_dir,
+            num_game_eval=5,
+        )
+    else:
+        evaluate(
+            env,
+            env.agents,
+            models,
+            game_nums=50,
+            maximum_frame=60 * 120,
+            logger=logger,
+            epsilon=0.05,
+        )
 
 
 def parse_args():
