@@ -16,8 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
-parts/
-sdist/
+parts/ sdist/
 var/
 wheels/
 share/python-wheels/
@@ -166,3 +165,5 @@ cython_debug/
 .DS_Store
 
 models/
+        
+tuning/
