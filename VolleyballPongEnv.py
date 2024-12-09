@@ -36,6 +36,10 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         super().__init__(base_env)
         self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
+        
+        self.intention_followed = {agent: 0 for agent in self.agents}
+        self.intention_not_followed = {agent: 0 for agent in self.agents}
+        self.no_intention = {agent: 0 for agent in self.agents}
 
     def add_reward(
         self,
@@ -64,8 +68,14 @@ class VolleyballPongEnvWrapper(EnvWrapper):
             intention_val = intention.get_intention()
             if intention_val == "stay" and action[src][0].astype(int) == 2:
                 rewards[src] -= self.penalty
+                self.intention_not_followed[src] += 1
             elif intention_val == "jump" and action[src][0].astype(int) != 2:
                 rewards[src] -= self.penalty
+                self.intention_not_followed[src] += 1
+            elif intention_val == "jump" or intention_val == "stay":
+                self.intention_followed[src] += 1
+            else:
+                self.no_intention[src] += 1
 
         for agent in rewards:
             self.accumulated_rewards[agent] += rewards[agent]
@@ -76,11 +86,24 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
+    
+    def get_intention_metrics(self, agent: str) -> float:
+        return {
+            'followed': self.intention_followed[agent],
+            'not_followed': self.intention_not_followed[agent],
+            'no_intention': self.no_intention[agent],
+        }
+    
+    def get_accumulated_rewards(self, agent: str) -> float:
+        return self.accumulated_rewards[agent]
 
     def reset(self, seed=None, options=None):
         res = super().reset(seed, options)
         self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
+        self.intention_followed = {agent: 0 for agent in self.agents}
+        self.intention_not_followed = {agent: 0 for agent in self.agents}
+        self.no_intention = {agent: 0 for agent in self.agents}
         return res
 
 
@@ -340,7 +363,7 @@ def train(
         if (game_num + 1) % save_model_time == 0:
             for agent, model in models.items():
                 torch.save(
-                    model.state_dict(), f"models/{agent}_model_checkpoint{game_num}.pth"
+                    model.state_dict(), f"{log_dir}/models/{agent}_model_checkpoint{game_num}.pth"
                 )
 
         # update epsilon
