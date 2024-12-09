@@ -216,7 +216,15 @@ def read_log(log_fname, out_dir):
                     c: eval_summary_df[f"{a}_{c}_mean"].to_numpy()
                     for c in summary_cols
                 }
-                axes[i].stackplot(x, means.values(), labels=means.keys())
+                # print([v for v in means.values()])
+                # print(np.vstack([v for v in means.values()]))
+                total_actions_cnt = np.sum(np.stack([v for v in means.values()]), axis=0)
+                # total_actions_cnt = 1
+                stack_items = [
+                    v / total_actions_cnt 
+                    for v in means.values()
+                ]
+                axes[i].stackplot(x, *stack_items, labels=means.keys())
                 axes[i].set_title(f"{a} Behavior")
                 axes[i].legend()
             
@@ -224,7 +232,14 @@ def read_log(log_fname, out_dir):
                 c: eval_summary_df[[f"{a}_{c}_mean" for a in agents]].mean(axis=1).to_numpy()
                 for c in summary_cols
             }
-            axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
+            total_actions_cnt_overall = np.sum(np.stack([v for v in overall_means.values()]), axis=0)
+            # total_actions_cnt_overall = 1
+            total_stack_items = [
+                v / total_actions_cnt_overall 
+                for v in overall_means.values()
+            ]
+            axes[-1].stackplot(x, *total_stack_items, labels=overall_means.keys())
+            # axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
             axes[-1].set_title(f"Average Behavior")
             axes[-1].legend()
 
