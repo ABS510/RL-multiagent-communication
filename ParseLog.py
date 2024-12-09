@@ -29,6 +29,18 @@ def read_log(log_fname, out_dir):
                 continue
             
             # train log
+            # newer logs
+            train_reward_match = re.match(r'.* - VolleyballPongEnv - INFO - Agent (\w+_0) accumulated reward: (.+), accumulated penalty: (.+)', line)
+            if train_reward_match:
+                agent_name = train_reward_match.group(1)
+                reward = train_reward_match.group(2)
+                penalty = train_reward_match.group(3)
+                train_df_list[training_game][agent_name + '_reward'] = float(reward)
+                train_df_list[training_game][agent_name + '_penalty'] = float(penalty)
+
+                continue
+
+            # older logs
             train_reward_match = re.match(r'.* - VolleyballPongEnv - INFO - Agent (\w+_0) accumulated reward: (.+)', line)
             if train_reward_match:
                 agent_name = train_reward_match.group(1)
@@ -79,20 +91,43 @@ def read_log(log_fname, out_dir):
     train_df = pd.DataFrame(train_df_list).dropna()
     train_df.to_csv(os.path.join(out_dir, 'train_log.csv'), index_label='Game')
 
-    for suffix in ['_reward', '_loss']:
-        train_plot = sns.lineplot(data=train_df[[a+suffix for a in agents]]) 
+    for suffix in ['_reward', '_loss', '_penalty']:
+        if suffix == '_penalty' and 'first_0_penalty' not in train_df:
+            continue
+        train_item_df = train_df[[a+suffix for a in agents]]
+
+        train_plot = sns.lineplot(data=train_item_df) 
         if suffix == '_loss':
             plt.yscale('log')
         train_plot.figure.savefig(os.path.join(out_dir, f"train{suffix}.png"))
         train_plot.figure.clear()
 
+        if suffix == '_reward':
+            train_win_df = pd.DataFrame({
+                'win_reward': train_item_df.max(axis=1),
+                'lose_reward': train_item_df.min(axis=1)
+            })
+            train_win_plot = sns.lineplot(data=train_win_df) 
+            train_win_plot.figure.savefig(os.path.join(out_dir, f"train_win_reward.png"))
+            train_win_plot.figure.clear()
+
     eval_df = pd.DataFrame(eval_df_list).dropna()
     eval_df.to_csv(os.path.join(out_dir, 'eval_log.csv'), index=False)
 
     for suffix in ['_reward', '_score']:
-        eval_plot = sns.lineplot(data=eval_df[[a+suffix for a in agents]]) 
+        eval_item_df = eval_df[[a+suffix for a in agents]]
+        eval_plot = sns.lineplot(data=eval_item_df) 
         eval_plot.figure.savefig(os.path.join(out_dir, f"eval{suffix}.png"))
         eval_plot.figure.clear()
+
+        if suffix == '_score':
+            eval_win_df = pd.DataFrame({
+                'win_reward': eval_item_df.max(axis=1),
+                'lose_reward': eval_item_df.min(axis=1)
+            })
+            eval_win_plot = sns.lineplot(data=eval_win_df) 
+            eval_win_plot.figure.savefig(os.path.join(out_dir, f"eval_win{suffix}.png"))
+            eval_win_plot.figure.clear()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Loading a log file")
