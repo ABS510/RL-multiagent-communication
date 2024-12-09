@@ -188,7 +188,7 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
             infos,
             next_observations,
         ) = replay_buffer[agent].sample(params.batch_size)
-        done = (terminations == True) | (truncations == True)
+        done = (terminations == True) or (truncations == True)
         rewards = torch.tensor(list(rewards), device=device, dtype=torch.float32)
         observations = np_to_torch(observations, device=device)
         if done:
@@ -295,8 +295,8 @@ def train(
                         actions[agent],
                         observations[agent],
                         rewards[agent],
-                        terminations[agent],
-                        truncations[agent],
+                        True,
+                        True,
                         infos[agent],
                         None,
                     )
