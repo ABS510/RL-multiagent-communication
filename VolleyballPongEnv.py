@@ -37,7 +37,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         super().__init__(base_env)
         self.accumulated_scores = {agent: 0 for agent in self.agents}
         self.accumulated_rewards = {agent: 0 for agent in self.agents}
-        
+
         self.intention_followed = {agent: 0 for agent in self.agents}
         self.intention_not_followed = {agent: 0 for agent in self.agents}
         self.no_intention = {agent: 0 for agent in self.agents}
@@ -87,14 +87,14 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
-    
+
     def get_intention_metrics(self, agent: str) -> float:
         return {
-            'followed': self.intention_followed[agent],
-            'not_followed': self.intention_not_followed[agent],
-            'no_intention': self.no_intention[agent],
+            "followed": self.intention_followed[agent],
+            "not_followed": self.intention_not_followed[agent],
+            "no_intention": self.no_intention[agent],
         }
-    
+
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
 
@@ -113,12 +113,10 @@ def create_env(params, intention_tuples):
     render_mode = None
     if params.evaluation_mode and params.render_game:
         pygame.init()
-        pygame.display.set_mode((1,1))
+        pygame.display.set_mode((1, 1))
         render_mode = "human"
 
-    env = volleyball_pong_v3.env(
-        max_cycles=params.max_frame, 
-        render_mode=render_mode)
+    env = volleyball_pong_v3.env(max_cycles=params.max_frame, render_mode=render_mode)
 
     env = AECWrapper(env)
 
@@ -256,6 +254,7 @@ def train(
         logger.info(f"Game {game_num}, epsilon: {epsilon}")
         observations, infos = env.reset()
         progress_bar = tqdm.tqdm(total=maximum_frame, position=0, leave=True)
+        q_vals = {agent: [] for agent in agents}
 
         for i in range(maximum_frame):
             progress_bar.update(1)
@@ -272,22 +271,12 @@ def train(
                         observation = np_to_torch(observation, device=device)
                         q_values = models[agent](observation)
                         max_idx = torch.argmax(q_values).item()
+                        q_vals[agent].append(q_values[max_idx].item())
                         action = idx_to_action(max_idx, env.action_space(agent))
                 actions[agent] = action
             next_observations, rewards, terminations, truncations, infos = env.step(
                 actions
             )
-
-            termination = False
-            if terminations == {} or truncations == {}:  # empty dict
-                termination = True
-            else:
-                for agent in agents:
-                    if truncations[agent] or terminations[agent]:
-                        termination = True
-                        break
-            if termination:
-                break
 
             for agent in agents:
                 replay_buffer[agent].push(
@@ -299,6 +288,17 @@ def train(
                     infos[agent],
                     next_observations[agent],
                 )
+
+            termination = False
+            if terminations == {} or truncations == {}:  # empty dict
+                termination = True
+            else:
+                for agent in agents:
+                    if truncations[agent] or terminations[agent]:
+                        termination = True
+                        break
+            if termination:
+                break
 
             # logger.info(actions)
             # logger.info("-" * 20)
@@ -346,6 +346,10 @@ def train(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
             )
 
+            logger.info(
+                f"Agent {agent} average q_val: {np.mean(q_vals[agent])}, std: {np.std(q_vals[agent])}"
+            )
+
             if agent in running_loss_per_agent:
                 logger.info(
                     f"Agent {agent} average loss: {running_loss_per_agent[agent]}"
@@ -372,7 +376,8 @@ def train(
         if (game_num + 1) % save_model_time == 0:
             for agent, model in models.items():
                 torch.save(
-                    model.state_dict(), f"{log_dir}/models/{agent}_model_checkpoint{game_num}.pth"
+                    model.state_dict(),
+                    f"{log_dir}/models/{agent}_model_checkpoint{game_num}.pth",
                 )
 
         # update epsilon
@@ -398,19 +403,19 @@ def train(
 def main(config):
     # TODO: hyperparameter tuning
     log_dir = config.log_dir
-    
+
     if log_dir is None:
-        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}" 
-    
+        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}"
+
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    
+
     global logger
     logger = setup_logger("VolleyballPongEnv", f"{log_dir}/test.log")
-    
+
     if not os.path.exists(f"{log_dir}/models"):
         os.makedirs(f"{log_dir}/models")
-        
+
     params = config.params
     intention_tuples = config.intentions_tuples
     env = create_env(params, intention_tuples)

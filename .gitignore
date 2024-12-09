@@ -169,3 +169,6 @@ models/
 tuning/
 *.csv
 *.png
+
+
+test_config_sample/
