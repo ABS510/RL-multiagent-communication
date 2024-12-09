@@ -26,4 +26,4 @@ intentions_tuples = [
     (3, (1,3))
 ]
 
-log_dir = "test_config_sample"
+log_dir = "config_lr1e-2"

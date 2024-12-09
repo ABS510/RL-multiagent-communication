@@ -3,7 +3,7 @@ from argparse import Namespace
 params = Namespace(
     replay_buffer_capacity=30000,
     batch_size=64,
-    lr=1e-2,
+    lr=1e-4,
     gamma=0.99,
     max_frame=60 * 120,
     game_nums=2000,
@@ -26,4 +26,4 @@ intentions_tuples = [
     (3, (1,3))
 ]
 
-log_dir = "test_config_sample"
+log_dir = "config_lr1e-4"
