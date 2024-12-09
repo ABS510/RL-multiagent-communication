@@ -274,7 +274,7 @@ def train(
                         observation = np_to_torch(observation, device=device)
                         q_values = models[agent](observation)
                         max_idx = torch.argmax(q_values).item()
-                        q_vals[agent].append(q_values[max_idx].item())
+                        q_vals[agent].append(q_values[0, max_idx].item())
                         action = idx_to_action(max_idx, env.action_space(agent))
                 actions[agent] = action
             next_observations, rewards, terminations, truncations, infos = env.step(
@@ -359,9 +359,10 @@ def train(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
             )
 
-            logger.info(
-                f"Agent {agent} average q_val: {np.mean(q_vals[agent])}, std: {np.std(q_vals[agent])}"
-            )
+            if len(q_vals[agent]) != 0:
+                logger.info(
+                    f"Agent {agent} average q_val: {np.mean(q_vals[agent])}, std: {np.std(q_vals[agent])}"
+                )
 
             if agent in running_loss_per_agent:
                 logger.info(
