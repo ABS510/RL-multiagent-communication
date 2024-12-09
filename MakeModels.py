@@ -11,7 +11,9 @@ Note: Assumes state of each agent is a Tuple of Boxes!
 
 
 # TODO (Yining): load models from file
-def make_models(env, device, hidden_sizes=[64, 128], stack_size=30) -> Dict[str, NeuralNet]:
+def make_models(
+    env, device, hidden_sizes=[64, 128], stack_size=30, model_path=None
+) -> Dict[str, NeuralNet]:
     models = {}
     for agent in env.agents:
         observation_space = env.observation_space(agent)
@@ -24,4 +26,7 @@ def make_models(env, device, hidden_sizes=[64, 128], stack_size=30) -> Dict[str,
         models[agent] = NeuralNet(input_state_space_size, hidden_sizes, output_size).to(
             device
         )
+    if model_path is not None:
+        for agent in env.agents:
+            models[agent].load_state_dict(torch.load(model_path[agent]))
     return models
