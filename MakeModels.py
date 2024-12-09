@@ -23,9 +23,9 @@ def make_models(
         output_size = 1
         for space in env.action_space(agent).spaces:
             output_size *= space.n
-        models[agent] = NeuralNet(input_state_space_size, hidden_sizes, output_size).to(
-            device
-        )
+        models[agent] = NeuralNet(
+            input_state_space_size, hidden_sizes, output_size, max_len=stack_size + 1
+        ).to(device)
     if model_path is not None:
         for agent in env.agents:
             models[agent].load_state_dict(torch.load(model_path[agent]))

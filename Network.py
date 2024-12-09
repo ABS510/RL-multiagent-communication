@@ -7,6 +7,28 @@ Neural Network class for DQN
 """
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float()
+            * (-torch.log(torch.tensor(10000.0)) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, : x.size(1)]
+        return self.dropout(x)
+
+
 # TODO: Different model arch
 class NeuralNet(nn.Module):
     """
@@ -47,6 +69,7 @@ class NeuralNet(nn.Module):
         output_size,
         # op_act_fn=lambda x: x,
         # comm_act_fn=lambda x: x,
+        max_len,
     ):
         super(NeuralNet, self).__init__()
 
@@ -54,6 +77,8 @@ class NeuralNet(nn.Module):
         embedding_size = 64
 
         self.input_embedding = nn.Linear(input_space, embedding_size)
+
+        self.positional_encoding = PositionalEncoding(embedding_size, max_len=max_len)
 
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
@@ -84,6 +109,7 @@ class NeuralNet(nn.Module):
         x = self.input_embedding(x)
         # add eos
         x = torch.cat([x, self.EOS.expand(x.shape[0], 1, -1)], dim=1)
+        x = self.positional_encoding(x)
         x = self.transformer(x)
         x = x[:, -1, :]
         x = self.output_layer(x)
