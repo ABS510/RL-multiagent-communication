@@ -188,17 +188,17 @@ def update(agents, models, replay_buffer, params, criterion, optimizers, env):
             infos,
             next_observations,
         ) = replay_buffer[agent].sample(params.batch_size)
-        done = (terminations == True) or (truncations == True)
+        terminations = torch.tensor(terminations, device=device, dtype=torch.bool)
+        truncations = torch.tensor(truncations, device=device, dtype=torch.bool)
+        done = terminations | truncations
+        done = done.to(torch.int32)
         rewards = torch.tensor(list(rewards), device=device, dtype=torch.float32)
         observations = np_to_torch(observations, device=device)
-        if done:
-            targets = rewards
-        else:
-            next_observations = np_to_torch(next_observations, device=device)
-            with torch.no_grad():
-                next_q_values = models[agent](next_observations)
-                max_next_q_values = torch.max(next_q_values, dim=1).values
-                targets = rewards + params.gamma * max_next_q_values * (1 - done)
+        next_observations = np_to_torch(next_observations, device=device)
+        with torch.no_grad():
+            next_q_values = models[agent](next_observations)
+            max_next_q_values = torch.max(next_q_values, dim=1).values
+            targets = rewards + params.gamma * max_next_q_values * (1 - done)
         q_values = models[agent](observations)
         action_idx = torch.tensor(
             [action_to_idx(a, env.action_space(agent)) for a in actions]
@@ -291,6 +291,9 @@ def train(
                         break
             if termination:
                 for agent in agents:
+                    observation = []
+                    for item in env.observation_space(agent).spaces:
+                        observation.append(np.zeros(item.shape))
                     replay_buffer[agent].push(
                         actions[agent],
                         observations[agent],
@@ -298,7 +301,7 @@ def train(
                         True,
                         True,
                         infos[agent],
-                        None,
+                        tuple(observation),
                     )
                 break
 
