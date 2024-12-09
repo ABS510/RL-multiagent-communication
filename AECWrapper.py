@@ -29,6 +29,13 @@ class AECWrapper(OrderEnforcingWrapper):
         mask[0:50, :] = 0
         mask[130:, 80 - 4 : 80 + 4] = 0
         mask[180:, :] = 0
+        
+        high = np.zeros(12)
+        high[::2] = 210
+        high[1::2] = 160
+        high[-2] = 21
+        high[-1] = 21
+        self.high = high.reshape((6, 2)).astype(np.float64)
         self.ball_mask = mask
         self.accumulated_scores = {}
 
@@ -43,6 +50,7 @@ class AECWrapper(OrderEnforcingWrapper):
         high[1::2] = 160
         high[-2] = 21
         high[-1] = 21
+        self.high = high.reshape((6, 2))
         return gym.spaces.Box(
             low=np.zeros((6, 2)), high=high.reshape((6, 2)), dtype=np.int64
         )
@@ -71,7 +79,8 @@ class AECWrapper(OrderEnforcingWrapper):
                     ]
                 ],
             )
-        )
+        ).astype(np.float64)
+        res /= self.high
         return res
 
     def find_rectangle(self, img, paddle, detections):
