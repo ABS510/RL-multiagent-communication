@@ -25,7 +25,7 @@ import argparse
 import importlib.util
 import sys
 
-logger = setup_logger("VolleyballPongEnv", "test.log")
+logger = None
 device = get_torch_device()
 
 
@@ -188,14 +188,8 @@ def train(
     save_model_time=10,
     log_dir=None,
 ):
-    if not os.path.exists("models"):
-        os.makedirs("models")
-
     if log_dir is None:
         log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}"
-
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
 
     agents = env.agents
     loss_csv = os.path.join(log_dir, "train_loss.csv")
@@ -367,6 +361,20 @@ def train(
 
 def main(config):
     # TODO: hyperparameter tuning
+    log_dir = config.log_dir
+    
+    if log_dir is None:
+        log_dir = f"outputs{datetime.now().strftime('%I:%M%p-%Y-%m-%d')}" 
+    
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    global logger
+    logger = setup_logger("VolleyballPongEnv", f"{log_dir}/test.log")
+    
+    if not os.path.exists(f"{log_dir}/models"):
+        os.makedirs(f"{log_dir}/models")
+        
     params = config.params
     intention_tuples = config.intentions_tuples
     env = create_env(params, intention_tuples)
