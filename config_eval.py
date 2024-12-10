@@ -20,7 +20,7 @@ params = Namespace(
     batch_size=64,
     lr=1e-5,
     gamma=0.99,
-    max_frame=500,
+    max_frame=60 * 60 * 3,
     game_nums=200,
     epsilon_init=1,
     epsilon_decay=0.9 / 50,
@@ -31,10 +31,10 @@ params = Namespace(
     hidden_sizes=[1024, 256],
     # evaluation_mode=False,
     # model_path=None,  # or dict of model path if evaluation_mode=True
-    render_game=False,
+    render_game=True,
     evaluation_mode=True,
     model_path={
-        agent: f"models/{agent}_model_checkpoint39.pth" 
+        agent: f"stable_try/models/{agent}_model_checkpoint9.pth"
         for agent in ["first_0", "second_0", "third_0", "fourth_0"]
         # "first_0": "models/first_0_model_checkpoint19.pth",
         # "second_0": "models/second_0_model_checkpoint19.pth",
@@ -49,7 +49,7 @@ params = Namespace(
 intentions_tuples = [(0, (0, 2)), (2, (0, 2)), (1, (1, 3)), (3, (1, 3))]
 
 # log_dir = "test_config_sample"
-log_dir = "test_transformer_mini_3"
+log_dir = "test_stable_try"
 
 
 # Example of config file for evaluation

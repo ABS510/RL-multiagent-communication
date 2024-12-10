@@ -76,7 +76,7 @@ def _stack_obs(frame_stack, obs, obs_space, stack_size, stack_dim=-1):
     """
     if isinstance(obs_space, gym.spaces.Box):
         obs_shape = obs.shape
-        agent_fs = frame_stack
+        agent_fs = frame_stack.astype(obs.dtype)
 
         if len(obs_shape) == 1:
             size = obs_shape[0]

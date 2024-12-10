@@ -487,7 +487,7 @@ def main(config):
             env.agents,
             models,
             game_nums=5,
-            maximum_frame=500,
+            maximum_frame=60 * 60 * 3,
             logger=logger,
             epsilon=0.05,
         )
