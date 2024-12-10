@@ -43,6 +43,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         self.intention_followed = {agent: 0 for agent in self.agents}
         self.intention_not_followed = {agent: 0 for agent in self.agents}
         self.no_intention = {agent: 0 for agent in self.agents}
+        self.reward_log = {agent: [] for agent in self.agents}
 
     def add_reward(
         self,
@@ -83,6 +84,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
 
         for agent in rewards:
             self.accumulated_rewards[agent] += rewards[agent]
+            self.reward_log[agent].append(rewards[agent])
         return rewards
 
     def get_accumulated_scores(self, agent: str) -> float:
@@ -98,6 +100,13 @@ class VolleyballPongEnvWrapper(EnvWrapper):
             "no_intention": self.no_intention[agent],
         }
 
+    def get_discounted_rewards(self, agent, gamma):
+        rewards = self.reward_log[agent]
+        res = 0
+        for i in range(len(rewards) - 1, -1, -1):
+            res = rewards[i] + gamma * res
+        return res
+
     def get_accumulated_rewards(self, agent: str) -> float:
         return self.accumulated_rewards[agent]
 
@@ -108,6 +117,7 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         self.intention_followed = {agent: 0 for agent in self.agents}
         self.intention_not_followed = {agent: 0 for agent in self.agents}
         self.no_intention = {agent: 0 for agent in self.agents}
+        self.reward_log = {agent: [] for agent in self.agents}
         return res
 
 
@@ -383,9 +393,14 @@ def train(
         del progress_bar
 
         # logger.info(f"Trained agents: {trained_agent}")
+        logger.info(f"Game {game_num} finished in {i} frames")
         for agent in agents:
             logger.info(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
+            )
+
+            logger.info(
+                f"Agent {agent} discount reward: {env.get_discounted_rewards(agent, params.gamma)}"
             )
 
             if len(q_vals[agent]) != 0:
@@ -397,6 +412,9 @@ def train(
                 logger.info(
                     f"Agent {agent} average loss: {running_loss_per_agent[agent]}"
                 )
+
+            lr = optimizers[agent].param_groups[0]["lr"]
+            logger.info(f"Agent {agent} learning rate: {lr}")
 
             # detect vanishing gradients
             param_num = sum(p.numel() for p in models[agent].parameters())
@@ -464,6 +482,7 @@ def main(config):
         os.makedirs(f"{log_dir}/models")
 
     params = config.params
+    logger.info(f"Parameters: {params}")
     intention_tuples = config.intentions_tuples
     env = create_env(params, intention_tuples)
     models = get_models(env, params)
