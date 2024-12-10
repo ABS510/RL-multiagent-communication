@@ -29,7 +29,7 @@ class AECWrapper(OrderEnforcingWrapper):
         mask[0:50, :] = 0
         mask[130:, 80 - 4 : 80 + 4] = 0
         mask[180:, :] = 0
-        
+
         high = np.zeros(12)
         high[::2] = 210
         high[1::2] = 160
@@ -52,13 +52,15 @@ class AECWrapper(OrderEnforcingWrapper):
         high[-1] = 21
         self.high = high.reshape((6, 2))
         return gym.spaces.Box(
-            low=np.zeros((6, 2)), high=high.reshape((6, 2)), dtype=np.int64
+            low=np.zeros((6, 2)), high=high.reshape((6, 2)), dtype=np.float64
         )
 
     def step(self, action):
         res = super().step(action)
         for agent in self.agents:
-            self.accumulated_scores[agent] += max(0, int(self.env.env.env.rewards[agent]))
+            self.accumulated_scores[agent] += max(
+                0, int(self.env.env.env.rewards[agent])
+            )
         return res
 
     def observe(self, agent):

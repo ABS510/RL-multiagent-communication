@@ -23,10 +23,10 @@ params = Namespace(
     max_frame=60 * 180,
     game_nums=200,
     epsilon_init=1,
-    epsilon_decay=0.9 / 30,
+    epsilon_decay=0.9 / 50,
     epsilon_decay_type="lin",
     epsilon_min=0.1,
-    penalty=0.2,
+    penalty=0.1,
     stack_size=5,
     hidden_sizes=[1024, 256],
     render_game=False,
@@ -38,8 +38,9 @@ params = Namespace(
 # (sender_idx, (receiever_idx1, receiver_idx2, ...))
 # Example: (0, (0,2)) will be an intention from agent0 to agent0 and agent2
 intentions_tuples = [(0, (0, 2)), (2, (0, 2)), (1, (1, 3)), (3, (1, 3))]
+# intentions_tuples = []
 
-log_dir = "stable_try"
+log_dir = "intentions"
 
 
 # Example of config file for evaluation
