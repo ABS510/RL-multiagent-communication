@@ -260,9 +260,7 @@ def train(
         for agent, model in models.items()
     }
     schedulers = {
-        agent: torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=2, gamma=0.99
-        )
+        agent: torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.99)
         for agent, optimizer in optimizers.items()
     }
 
@@ -379,7 +377,6 @@ def train(
                 if agent not in running_loss_per_agent:
                     running_loss_per_agent[agent] = loss_per_agent[agent]
                 else:
-                    schedulers[agent].step()
                     running_loss = running_loss_per_agent[agent] * i
                     running_loss_per_agent[agent] = (
                         running_loss + loss_per_agent[agent]
@@ -402,6 +399,7 @@ def train(
         # logger.info(f"Trained agents: {trained_agent}")
         logger.info(f"Game {game_num} finished in {i} frames")
         for agent in agents:
+            schedulers[agent].step()
             logger.info(
                 f"Agent {agent} accumulated reward: {env.get_accumulated_scores(agent)}, accumulated penalty: {env.get_accumulated_rewards(agent)}"
             )
