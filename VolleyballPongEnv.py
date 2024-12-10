@@ -259,6 +259,12 @@ def train(
         agent: torch.optim.Adam(model.parameters(), lr=params.lr)
         for agent, model in models.items()
     }
+    schedulers = {
+        agent: torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=2, gamma=0.99
+        )
+        for agent, optimizer in optimizers.items()
+    }
 
     epsilon = params.epsilon_init
 
@@ -373,6 +379,7 @@ def train(
                 if agent not in running_loss_per_agent:
                     running_loss_per_agent[agent] = loss_per_agent[agent]
                 else:
+                    schedulers[agent].step()
                     running_loss = running_loss_per_agent[agent] * i
                     running_loss_per_agent[agent] = (
                         running_loss + loss_per_agent[agent]
