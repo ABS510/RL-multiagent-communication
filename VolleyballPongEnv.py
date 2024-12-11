@@ -44,6 +44,8 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         self.intention_not_followed = {agent: 0 for agent in self.agents}
         self.no_intention = {agent: 0 for agent in self.agents}
         self.reward_log = {agent: [] for agent in self.agents}
+        self.last_time_ball_in_left = 0
+        self.last_time_ball_in_right = 0
 
     def add_reward(
         self,
@@ -82,6 +84,25 @@ class VolleyballPongEnvWrapper(EnvWrapper):
             else:
                 self.no_intention[src] += 1
 
+        ball_pos = self.aec_env.ball_pos
+        self.last_time_ball_in_left += 1
+        self.last_time_ball_in_right += 1
+        if ball_pos[0] < 1 and ball_pos[1] < 1:
+            self.last_time_ball_in_left = 0
+            self.last_time_ball_in_right = 0
+        elif ball_pos[1] < 80:
+            self.last_time_ball_in_left = 0
+        elif ball_pos[1] > 80:
+            self.last_time_ball_in_right = 0
+        if self.last_time_ball_in_left > 120:
+            rewards["first_0"] -= 2
+            rewards["third_0"] -= 2
+            self.last_time_ball_in_left = 0
+        if self.last_time_ball_in_right > 120:
+            rewards["second_0"] -= 2
+            rewards["fourth_0"] -= 2
+            self.last_time_ball_in_right = 0
+
         for agent in rewards:
             self.accumulated_rewards[agent] += rewards[agent]
             self.reward_log[agent].append(rewards[agent])
@@ -118,6 +139,8 @@ class VolleyballPongEnvWrapper(EnvWrapper):
         self.intention_not_followed = {agent: 0 for agent in self.agents}
         self.no_intention = {agent: 0 for agent in self.agents}
         self.reward_log = {agent: [] for agent in self.agents}
+        self.last_time_ball_in_left = 0
+        self.last_time_ball_in_right = 0
         return res
 
 
