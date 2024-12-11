@@ -42,6 +42,7 @@ class AECWrapper(OrderEnforcingWrapper):
     def reset(self, seed=None, options=None):
         res = super().reset(seed, options)
         self.accumulated_scores = {agent: 0 for agent in self.agents}
+        self.ball_pos = np.array([0, 0])
         return res
 
     def observation_space(self, agent):
@@ -159,6 +160,8 @@ class AECWrapper(OrderEnforcingWrapper):
                 fourth_0_detection,
             ]
         )
+
+        self.ball_pos = detected_ball
 
         state_vector = np.concatenate((paddles, detected_ball.reshape((1, -1))), axis=0)
 

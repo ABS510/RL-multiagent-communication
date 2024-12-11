@@ -18,15 +18,15 @@ from argparse import Namespace
 params = Namespace(
     replay_buffer_capacity=100000,
     batch_size=64,
-    lr=8e-6,
-    gamma=0.95,
-    max_frame=60 * 180,
-    game_nums=200,
+    lr=1e-4,
+    gamma=0.99,
+    max_frame=60 * 240,
+    game_nums=2000,
     epsilon_init=1,
     epsilon_decay=0.9 / 50,
     epsilon_decay_type="lin",
     epsilon_min=0.1,
-    penalty=0.1,
+    penalty=0.01,
     stack_size=5,
     hidden_sizes=[1024, 256],
     render_game=False,
@@ -40,7 +40,7 @@ params = Namespace(
 intentions_tuples = [(0, (0, 2)), (2, (0, 2)), (1, (1, 3)), (3, (1, 3))]
 # intentions_tuples = []
 
-log_dir = "intentions"
+log_dir = "no_intentions_1e-4_high_gamma"
 
 
 # Example of config file for evaluation
