@@ -15,13 +15,18 @@ summary_cols = ['intention followed',
                 'intention not followed',
                 'no intentions']
 
-def read_log(log_fname, out_dir):
+def read_log(log_fname, out_dir, msg=None):
+    msg_suffix = ""
+    if msg is not None:
+        msg_suffix = f"({msg})"
+
     training_game = 0
     eval_game = -1
 
     train_df_list = []
     eval_df_list = []
     eval_summary_list = []
+
     with open(log_fname, 'r') as f:
         while True:
             line = f.readline()
@@ -140,6 +145,11 @@ def read_log(log_fname, out_dir):
             train_plot = sns.lineplot(data=train_item_df) 
             if suffix == '_loss':
                 plt.yscale('log')
+            train_plot.set_xlabel("Training Game Number")
+
+            suffix_title = suffix.replace("_", "").title()
+            train_plot.set_ylabel(suffix_title)
+            train_plot.set_title(f"Training {suffix_title} {msg_suffix}")
             train_plot.figure.savefig(os.path.join(out_dir, f"train{suffix}.png"))
             train_plot.figure.clear()
 
@@ -149,6 +159,8 @@ def read_log(log_fname, out_dir):
                     'lose_reward': train_item_df.min(axis=1)
                 })
                 train_win_plot = sns.lineplot(data=train_win_df) 
+                train_win_plot.set_xlabel("Training Game Number")
+                train_win_plot.set_ylabel("Reward")
                 train_win_plot.figure.savefig(os.path.join(out_dir, f"train_win_reward.png"))
                 train_win_plot.figure.clear()
 
@@ -159,6 +171,10 @@ def read_log(log_fname, out_dir):
         for suffix in ['_reward', '_score']:
             eval_item_df = eval_df[[a+suffix for a in agents]]
             eval_plot = sns.lineplot(data=eval_item_df) 
+            eval_plot.set_xlabel("Evaluation Game Number")
+            suffix_title = suffix.replace("_", "").title()
+            eval_plot.set_ylabel(suffix_title)
+            eval_plot.set_title(f"Evaluation {suffix_title} {msg_suffix}")
             eval_plot.figure.savefig(os.path.join(out_dir, f"eval{suffix}.png"))
             eval_plot.figure.clear()
 
@@ -168,6 +184,8 @@ def read_log(log_fname, out_dir):
                     'lose_reward': eval_item_df.min(axis=1)
                 })
                 eval_win_plot = sns.lineplot(data=eval_win_df) 
+                eval_win_plot.set_xlabel("Evaluation Game Number")
+                eval_win_plot.set_ylabel("Reward")
                 eval_win_plot.figure.savefig(os.path.join(out_dir, f"eval_win{suffix}.png"))
                 eval_win_plot.figure.clear()
 
@@ -180,7 +198,9 @@ def read_log(log_fname, out_dir):
                     for a in agents
                 })
                 sns.lineplot(data=eval_behavior_df, ax=axes[i])
-                axes[i].set_title(behavior)
+                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_ylabel("Count")
+                axes[i].set_title(f"{behavior} {msg_suffix}")
             fig.savefig(os.path.join(out_dir, "eval_intentions.png"))
             fig.clear()
         except:
@@ -205,7 +225,9 @@ def read_log(log_fname, out_dir):
                     _, _, bars = axes[i].errorbar(x, y, yerr=yerr, label=a)
                     for bar in bars:
                         bar.set_alpha(0.3) 
-                axes[i].set_title(c)
+                axes[i].set_title(f"{c} {msg_suffix}")
+                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_ylabel("Score")
                 axes[i].legend()
             fig.savefig(os.path.join(out_dir, "eval_summary_scores.png"))
             fig.clear()
@@ -225,7 +247,9 @@ def read_log(log_fname, out_dir):
                     for v in means.values()
                 ]
                 axes[i].stackplot(x, *stack_items, labels=means.keys())
-                axes[i].set_title(f"{a} Behavior")
+                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_ylabel("Relative Frequency")
+                axes[i].set_title(f"{a} Behavior {msg_suffix}")
                 axes[i].legend()
             
             overall_means = {
@@ -239,8 +263,11 @@ def read_log(log_fname, out_dir):
                 for v in overall_means.values()
             ]
             axes[-1].stackplot(x, *total_stack_items, labels=overall_means.keys())
+            axes[-1].set_xlabel("Evaluation Game Number")
+            axes[-1].set_ylabel("Relative Frequency")
+            
             # axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
-            axes[-1].set_title(f"Average Behavior")
+            axes[-1].set_title(f"Average Behavior {msg_suffix}")
             axes[-1].legend()
 
             fig.savefig(os.path.join(out_dir, "eval_summary_intentions.png"))
@@ -255,10 +282,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--out", type=str, required=True, help="Path to the .csv output folder"
     )
+    parser.add_argument(
+        "-m", "--message", type=str, required=False, help="Optional title label"
+    )
 
     args = parser.parse_args()
     log_fname = args.log
     out_dir = args.out
+    msg = args.message
 
     if not os.path.exists(log_fname):
         raise FileNotFoundError
@@ -266,7 +297,7 @@ if __name__ == "__main__":
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     
-    read_log(log_fname, out_dir)
+    read_log(log_fname, out_dir, msg)
 
 
 
