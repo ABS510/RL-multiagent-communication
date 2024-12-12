@@ -1,15 +1,28 @@
 # RL-multiagent-communication
 
----
+This is the GitHub repository for our course project, InSPIRe: Interpretable Sharing of Proactive Intention
+in Reinforcement-learning, for 10-701 Introduction to Machine Learning at Carnegie Mellon University, Fall 2024 semester.
 
-Notes from Yining:
+![](https://github.com/ABS510/RL-multiagent-communication/blob/main/Example%20Game%20Play.mov)
 
-The example usage has been moved to `example_usage.py`.
+## Environment setup
+We recommend creating a virtual environment for running this project. Please run the following commands to install the appropriate packages and install the Atari ROM. 
 
-`Logging.py` include a func `setup_logger` and could help managing logs better.
+```
+$ pip install -r requirements.txt
+$ AutoROM --accept-license
+```
 
-`FrameStackV3.py` includes a wrapper that stacks the environment frames. Implementation does not matter that much, there's just one function interface as shown in the example, so it should be easy to use directly.
+## Running the training or evaluation experiments
 
-`EnvWrapper.py` includes the extended environment with the modified action space. Currently it only supports parallel training (agents take action simultaneously, not one by one). If you want to combine it with `FrameStackV3`, then the EnvWrapper should be wrapped in the FrameStack wrapper; otherwise it won't work. Check the example usage for more details :)
+To run a training or evaluation experiment, you should set up your own configuration file. Example training file is available at `config_sample.py` and an example evaluation file, with human-visible gameplay, is available at `config_eval.py`
+```
+$ python VolleyballPongEnv.py -c <path-to-your-config.py>
+```
 
-`VolleyballPongEnv.py` includes the customized env for Volleyball Pong, together with an example of usage.
+## Generating the plots from the log files
+
+To generate the final plots from the log specified in the config's output directory:
+```
+$ python ParseLog.py -i <path-to-log-file.log> -o <path-to-output-directory> -m "optional string for plot titles"
+```
