@@ -3,7 +3,8 @@
 This is the GitHub repository for our course project, InSPIRe: Interpretable Sharing of Proactive Intention
 in Reinforcement-learning, for 10-701 Introduction to Machine Learning at Carnegie Mellon University, Fall 2024 semester.
 
-![](https://github.com/ABS510/RL-multiagent-communication/blob/main/Example%20Game%20Play.mov)
+
+https://github.com/user-attachments/assets/23a646cf-af32-4f38-a882-c0f48bab2276
 
 ## Environment setup
 We recommend creating a virtual environment for running this project. Please run the following commands to install the appropriate packages and install the Atari ROM. 
