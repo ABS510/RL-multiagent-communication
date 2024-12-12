@@ -140,7 +140,9 @@ def read_log(log_fname, out_dir, msg=None):
         for suffix in ['_reward', '_loss', '_penalty']:
             if suffix == '_penalty' and 'first_0_penalty' not in train_df:
                 continue
-            train_item_df = train_df[[a+suffix for a in agents]]
+            train_item_df = train_df[[a+suffix for a in agents]].rename(columns={
+                (a+suffix) : str(i+1) for i, a in enumerate(agents)
+            })
 
             train_plot = sns.lineplot(data=train_item_df) 
             if suffix == '_loss':
@@ -171,7 +173,7 @@ def read_log(log_fname, out_dir, msg=None):
         for suffix in ['_reward', '_score']:
             eval_item_df = eval_df[[a+suffix for a in agents]]
             eval_plot = sns.lineplot(data=eval_item_df) 
-            eval_plot.set_xlabel("Evaluation Game Number")
+            eval_plot.set_xlabel("Evaluation Period")
             suffix_title = suffix.replace("_", "").title()
             eval_plot.set_ylabel(suffix_title)
             eval_plot.set_title(f"Evaluation {suffix_title} {msg_suffix}")
@@ -184,7 +186,7 @@ def read_log(log_fname, out_dir, msg=None):
                     'lose_reward': eval_item_df.min(axis=1)
                 })
                 eval_win_plot = sns.lineplot(data=eval_win_df) 
-                eval_win_plot.set_xlabel("Evaluation Game Number")
+                eval_win_plot.set_xlabel("Evaluation Period")
                 eval_win_plot.set_ylabel("Reward")
                 eval_win_plot.figure.savefig(os.path.join(out_dir, f"eval_win{suffix}.png"))
                 eval_win_plot.figure.clear()
@@ -198,7 +200,7 @@ def read_log(log_fname, out_dir, msg=None):
                     for a in agents
                 })
                 sns.lineplot(data=eval_behavior_df, ax=axes[i])
-                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_xlabel("Evaluation Period")
                 axes[i].set_ylabel("Count")
                 axes[i].set_title(f"{behavior} {msg_suffix}")
             fig.savefig(os.path.join(out_dir, "eval_intentions.png"))
@@ -226,7 +228,7 @@ def read_log(log_fname, out_dir, msg=None):
                     for bar in bars:
                         bar.set_alpha(0.3) 
                 axes[i].set_title(f"{c} {msg_suffix}")
-                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_xlabel("Evaluation Period")
                 axes[i].set_ylabel("Score")
                 axes[i].legend()
             fig.savefig(os.path.join(out_dir, "eval_summary_scores.png"))
@@ -247,7 +249,7 @@ def read_log(log_fname, out_dir, msg=None):
                     for v in means.values()
                 ]
                 axes[i].stackplot(x, *stack_items, labels=means.keys())
-                axes[i].set_xlabel("Evaluation Game Number")
+                axes[i].set_xlabel("Evaluation Period")
                 axes[i].set_ylabel("Relative Frequency")
                 axes[i].set_title(f"{a} Behavior {msg_suffix}")
                 axes[i].legend()
@@ -263,7 +265,7 @@ def read_log(log_fname, out_dir, msg=None):
                 for v in overall_means.values()
             ]
             axes[-1].stackplot(x, *total_stack_items, labels=overall_means.keys())
-            axes[-1].set_xlabel("Evaluation Game Number")
+            axes[-1].set_xlabel("Evaluation Period")
             axes[-1].set_ylabel("Relative Frequency")
             
             # axes[-1].stackplot(x, overall_means.values(), labels=overall_means.keys())
